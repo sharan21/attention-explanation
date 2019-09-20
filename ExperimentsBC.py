@@ -70,10 +70,13 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
 
 ################################################################################################ MODIFICATIONS START HERE
 
-def integrated_gradients(grads, testdata):
+def integrated_gradients(grads, testdata, grads_wrt='H'):
+
+	#grads is of size steps x wordcount of sample sentence
 
 	# grads is a dict of 3 gradients, H , XxE, and XxE[X]
-	grads_list = grads['H']
+	grads_list = grads[grads_wrt]
+
 
 	x_dash = np.array(testdata[0])
 	x = np.array(testdata[-1])
@@ -95,7 +98,7 @@ def integrated_gradients(grads, testdata):
 	# int_grads = np.zeros_like(int_grads)
 
 
-	int_grads = np.divide(int_grads, np.sum(int_grads))*100
+	# int_grads = np.divide(int_grads, np.sum(int_grads))
 
 	return int_grads
 
@@ -119,7 +122,7 @@ def generate_input_collection_from_sample(dataset, steps = 10, sample=0):
 	final_vector = dataset.test_data.X[sample]
 	#5497 => horrible
 
-	zero_vector = [5497]*len(final_vector)
+	zero_vector = [0]*len(final_vector)
 
 	diff = list(np.abs(np.array(final_vector) - np.array(zero_vector)))
 	inc = np.array([int(e/steps) for e in diff])
@@ -229,14 +232,12 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	imdb_vectorizer = pickle.load(file)
 
 
-
-
 	# get testdata in back to english
 	print("getting testdata back in english")
 	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
 
 	# load int_grads to save time
-	# int_grads = load_int_grads(file='int_grads_10_steps_bad.pickle')
+	# int_grads = load_int_grads(file='int_grads.pickle')
 
 	# compute integrated grads for whole dataset.testdata.X
 	int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
@@ -256,8 +257,6 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 	# Validating IG amd SG
 	write_ig_to_file(int_grads, normal_grads_norm, preds, testdata_eng)
-
-	#exit(0)
 
 	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
 	                test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
