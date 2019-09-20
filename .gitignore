@@ -1,6 +1,8 @@
 .DS_Store
 *.xml
 *.yml
+*.png
 graphoutputs
 .idea
 preprocess
+__pycache__
