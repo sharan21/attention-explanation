@@ -68,9 +68,12 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
 		print(e)
 		return
 
+################################################################################################ MODIFICATIONS START HERE
+
 def integrated_gradients(grads, testdata):
 
-	grads_list = grads['XxE']
+	# grads is a dict of 3 gradients, H , XxE, and XxE[X]
+	grads_list = grads['H']
 
 	x_dash = np.array(testdata[0])
 	x = np.array(testdata[-1])
@@ -86,6 +89,11 @@ def integrated_gradients(grads, testdata):
 
 
 	int_grads = np.multiply(integral,diff)
+
+	# perturb int_grads to see effect on corr plot
+	# int_grads = np.abs(np.random.randn(*int_grads.shape))
+	# int_grads = np.zeros_like(int_grads)
+
 
 	int_grads = np.divide(int_grads, np.sum(int_grads))*100
 
@@ -109,7 +117,9 @@ def generate_input_collection_from_sample(dataset, steps = 10, sample=0):
 	"""Returns list of ndarrays"""
 	collection = []
 	final_vector = dataset.test_data.X[sample]
-	zero_vector = [0]*len(final_vector)
+	#5497 => horrible
+
+	zero_vector = [5497]*len(final_vector)
 
 	diff = list(np.abs(np.array(final_vector) - np.array(zero_vector)))
 	inc = np.array([int(e/steps) for e in diff])
@@ -143,6 +153,8 @@ def generate_integrated_grads(evaluator, dataset):
 
 		int_grads.append(int_grads_of_sample)
 
+
+
 	return(int_grads)
 
 def get_sentence_from_testdata(vec, testdata):
@@ -160,10 +172,10 @@ def get_sentence_from_testdata(vec, testdata):
 
 	return(txt)
 
-def load_int_grads():
+def load_int_grads(file = 'int_grads_20_steps.pickle'):
 	print("loading int_grads from pickle")
 	# load int_grads from pickle, wont affect because dataset random seed is fixed
-	with open("int_grads.pickle", 'rb') as handle:
+	with open(file, 'rb') as handle:
 		int_grads = pickle.load(handle)
 	return int_grads
 
@@ -203,10 +215,6 @@ def write_ig_to_file(int_grads, normal_grads_norm , preds, testdata_eng, iter=10
 
 
 
-
-
-
-
 def generate_graphs_on_latest_model(dataset, config='lstm'):
 	config = configurations[config](dataset)
 	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
@@ -221,24 +229,26 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	imdb_vectorizer = pickle.load(file)
 
 
+
+
 	# get testdata in back to english
 	print("getting testdata back in english")
 	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
 
 	# load int_grads to save time
-	int_grads = load_int_grads()
+	# int_grads = load_int_grads(file='int_grads_10_steps_bad.pickle')
 
 	# compute integrated grads for whole dataset.testdata.X
-	# int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
+	int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
 
 	# compute normal grads for whole dataset.testdata.X
 	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
-	normal_grads_norm = normalise_grads(normal_grads['XxE'])
+	normal_grads_norm = normalise_grads(normal_grads['H'])
 
 	# pickle dump int_grads for future use
-	# print("saving int_grads")
-	# with open("int_grads.pickle", 'wb') as handle:
-	# 	pickle.dump(int_grads, handle)
+	print("saving int_grads")
+	with open("int_grads_10_steps_bad.pickle", 'wb') as handle:
+		pickle.dump(int_grads, handle)
 
 
 	# this updates test_data.X_hat and test_data_attn, needed for corr plot
@@ -247,14 +257,14 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	# Validating IG amd SG
 	write_ig_to_file(int_grads, normal_grads_norm, preds, testdata_eng)
 
-	exit(0)
-
-
-
-
+	#exit(0)
 
 	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
 	                test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
+
+
+
+###################################################################################################################   MODIFICATIONS END HERE
 
 
 def generate_adversarial_examples(dataset, config='lstm'):
