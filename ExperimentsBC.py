@@ -109,7 +109,7 @@ def generate_input_collection_from_sample(dataset, steps = 10, sample=0):
 	"""Returns list of ndarrays"""
 	collection = []
 	final_vector = dataset.test_data.X[sample]
-	zero_vector = [sample]*len(final_vector)
+	zero_vector = [0]*len(final_vector)
 
 	diff = list(np.abs(np.array(final_vector) - np.array(zero_vector)))
 	inc = np.array([int(e/steps) for e in diff])
@@ -167,6 +167,44 @@ def load_int_grads():
 		int_grads = pickle.load(handle)
 	return int_grads
 
+def make_single_attri_dict(txt, int_grads, norm_grads_unpruned):
+
+	words = [e for e in txt.split(" ")]
+
+	int_grads_dict = {}
+	norm_grads_dict = {}
+	norm_grads_pruned = (norm_grads_unpruned[0])[:len(int_grads[0])]
+
+	assert len(int_grads[0]) == len(norm_grads_pruned)
+
+	for i in range(len(words)):
+		int_grads_dict[words[i]] = int_grads[0][i]
+		norm_grads_dict[words[i]] = norm_grads_unpruned[0][i]
+
+	return(int_grads_dict, norm_grads_dict)
+
+
+def write_ig_to_file(int_grads, normal_grads_norm , preds, testdata_eng, iter=10):
+
+	print("Writing IG vs SG results to file")
+
+	with open("ig_vs_norm.txt", "w") as f:
+		for i in range(iter):
+
+			f.write("\nSentence:\n")
+			f.write("prediction is: {}\n".format(preds[i]))
+			f.write(testdata_eng[i]+"\n")
+			i, n = make_single_attri_dict(testdata_eng[i], int_grads[i], normal_grads_norm[i])
+			f.write("IG Says:\n")
+			f.write(str(i)+"\n")
+			f.write("Normal grad says\n")
+			f.write(str(n))
+			f.write("\n")
+
+
+
+
+
 
 
 def generate_graphs_on_latest_model(dataset, config='lstm'):
@@ -187,36 +225,33 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	print("getting testdata back in english")
 	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
 
-
-	# int_grads = load_int_grads() # to save time
+	# load int_grads to save time
+	int_grads = load_int_grads()
 
 	# compute integrated grads for whole dataset.testdata.X
-	int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
+	# int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
 
 	# compute normal grads for whole dataset.testdata.X
 	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
 	normal_grads_norm = normalise_grads(normal_grads['XxE'])
 
 	# pickle dump int_grads for future use
-	with open("int_grads.pickle", 'wb') as handle:
-		pickle.dump(int_grads, handle)
-
+	# print("saving int_grads")
+	# with open("int_grads.pickle", 'wb') as handle:
+	# 	pickle.dump(int_grads, handle)
 
 
 	# this updates test_data.X_hat and test_data_attn, needed for corr plot
-	_ = evaluator.evaluate(dataset.test_data, save_results=False)
+	preds, attn = evaluator.evaluate(dataset.test_data, save_results=False)
 
 	# Validating IG amd SG
-	for i in range (10):
-
-		print("sentence:")
-		print(testdata_eng[i])
-		print("ig")
-		print(int_grads[i])
-		print("normal grads")
-		print(normal_grads_norm[i])
+	write_ig_to_file(int_grads, normal_grads_norm, preds, testdata_eng)
 
 	exit(0)
+
+
+
+
 
 	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
 	                test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
