@@ -102,6 +102,40 @@ def integrated_gradients(grads, testdata, grads_wrt='H'):
 
 	return int_grads
 
+def integrated_gradients_mod(grads, testdata, grads_wrt='H'):
+	# this is a mod of IG that will only calculate the average grads of input along X'...X
+
+	#grads is of size steps x wordcount of sample sentence
+
+	# grads is a dict of 3 gradients, H , XxE, and XxE[X]
+	grads_list = grads[grads_wrt]
+
+	x_dash = np.array(testdata[0])
+	x = np.array(testdata[-1])
+	diff = x-x_dash
+
+	d_alpha = np.divide(diff, len(testdata))
+
+	integral = np.zeros_like(x)
+
+	for g in grads_list: # calculate the summatiom
+		# integral_body = np.multiply(np.abs(g), d_alpha)
+		integral = np.add(integral, np.abs(g))
+
+	int_grads = np.divide(integral, len(testdata)) #calulate the mean
+
+
+	# int_grads = np.multiply(integral,diff)
+
+	# perturb int_grads to see effect on corr plot
+	# int_grads = np.abs(np.random.randn(*int_grads.shape))
+	# int_grads = np.zeros_like(int_grads)
+
+
+	# int_grads = np.divide(int_grads, np.sum(int_grads))
+
+	return int_grads
+
 
 
 def normalise_grads(grads_list):
@@ -150,7 +184,7 @@ def generate_integrated_grads(evaluator, dataset):
 		collection = generate_input_collection_from_sample(dataset, sample=i)
 		# _ = evaluator.evaluate(collection, save_results=False)
 		grads = evaluator.get_grads_from_custom_td(collection)
-		int_grads_of_sample = integrated_gradients(grads, collection)
+		int_grads_of_sample = integrated_gradients_mod(grads, collection)
 		# int_grads_of_sample = process_int_grads(int_grads_of_sample)
 
 
@@ -237,26 +271,28 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
 
 	# load int_grads to save time
-	# int_grads = load_int_grads(file='int_grads.pickle')
+	# int_grads = load_int_grads(file='int_grads_10_not_norm.pickle')
 
 	# compute integrated grads for whole dataset.testdata.X
 	int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
+	int_grads_norm = normalise_grads(int_grads)
+	# pickle dump int_grads for future use
+	print("saving int_grads")
+	with open("int_grads_avg.pickle", 'wb') as handle:
+		pickle.dump(int_grads, handle)
 
 	# compute normal grads for whole dataset.testdata.X
 	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
 	normal_grads_norm = normalise_grads(normal_grads['H'])
 
-	# pickle dump int_grads for future use
-	print("saving int_grads")
-	with open("int_grads_10_steps_bad.pickle", 'wb') as handle:
-		pickle.dump(int_grads, handle)
+
 
 
 	# this updates test_data.X_hat and test_data_attn, needed for corr plot
 	preds, attn = evaluator.evaluate(dataset.test_data, save_results=False)
 
 	# Validating IG amd SG
-	write_ig_to_file(int_grads, normal_grads_norm, preds, testdata_eng)
+	write_ig_to_file(int_grads_norm, normal_grads_norm, preds, testdata_eng)
 
 	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
 	                test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
