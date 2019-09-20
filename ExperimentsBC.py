@@ -168,9 +168,7 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
 
 	#get imdb vectorizer
-	print("getting imdb vectorizer")
-	file = open('imdb_vectorizer.pickle', 'rb')
-	imdb_vectorizer = pickle.load(file)
+	#
 
 
 
