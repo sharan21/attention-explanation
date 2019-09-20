@@ -1,0 +1,25 @@
+{
+  "model": {
+    "encoder": {
+      "vocab_size": 12487,
+      "embed_size": 300,
+      "type": "rnn",
+      "hidden_size": 128
+    },
+    "decoder": {
+      "attention": {
+        "type": "dot"
+      },
+      "output_size": 1
+    }
+  },
+  "training": {
+    "bsize": 32,
+    "weight_decay": 1e-05,
+    "pos_weight": [
+      1.0157037384272822
+    ],
+    "basepath": "outputs/",
+    "exp_dirname": "imdb/lstm+dot"
+  }
+}
