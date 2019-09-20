@@ -3,6 +3,7 @@ from Transparency.Trainers.PlottingBC import generate_graphs, plot_adversarial_e
 from Transparency.configurations import configurations
 from Transparency.Trainers.TrainerBC import Trainer, Evaluator
 from Transparency.model.LR import LR
+from datetime import datetime
 
 
 def train_dataset(dataset, config='lstm', n_iter=2):
@@ -123,6 +124,7 @@ def integrated_gradients_mod(grads, testdata, grads_wrt='H'):
 		integral = np.add(integral, np.abs(g))
 
 	int_grads = np.divide(integral, len(testdata)) #calulate the mean
+	int_grads = np.multiply(int_grads, diff)
 
 
 	# int_grads = np.multiply(integral,diff)
@@ -174,7 +176,7 @@ def generate_input_collection_from_sample(dataset, steps = 10, sample=0):
 	return(collection)
 
 
-def generate_integrated_grads(evaluator, dataset):
+def generate_integrated_grads(evaluator, dataset, avg = False):
 
 	print("\nGenerating IG for {} input vectors from test_data...\n".format(len(dataset.test_data.X)))
 
@@ -184,6 +186,7 @@ def generate_integrated_grads(evaluator, dataset):
 		collection = generate_input_collection_from_sample(dataset, sample=i)
 		# _ = evaluator.evaluate(collection, save_results=False)
 		grads = evaluator.get_grads_from_custom_td(collection)
+
 		int_grads_of_sample = integrated_gradients_mod(grads, collection)
 		# int_grads_of_sample = process_int_grads(int_grads_of_sample)
 
@@ -209,7 +212,7 @@ def get_sentence_from_testdata(vec, testdata):
 
 	return(txt)
 
-def load_int_grads(file = 'int_grads_20_steps.pickle'):
+def load_int_grads(file = './pickles/int_grads.pickle'):
 	print("loading int_grads from pickle")
 	# load int_grads from pickle, wont affect because dataset random seed is fixed
 	with open(file, 'rb') as handle:
@@ -237,7 +240,12 @@ def write_ig_to_file(int_grads, normal_grads_norm , preds, testdata_eng, iter=10
 
 	print("Writing IG vs SG results to file")
 
-	with open("ig_vs_norm.txt", "w") as f:
+	with open("./analysis/ig_vs_norm.txt", "a") as f:
+
+		now = datetime.now()
+		current_time = now.strftime("%H:%M:%S")
+		f.write("\n\nCurrent Time = {}".format(current_time))
+
 		for i in range(iter):
 
 			f.write("\nSentence:\n")
@@ -262,7 +270,7 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 	#get imdb vectorizer
 	print("getting imdb vectorizer")
-	file = open('imdb_vectorizer.pickle', 'rb')
+	file = open('./pickles/imdb_vectorizer.pickle', 'rb')
 	imdb_vectorizer = pickle.load(file)
 
 
@@ -271,21 +279,22 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
 
 	# load int_grads to save time
-	# int_grads = load_int_grads(file='int_grads_10_not_norm.pickle')
+	int_grads = load_int_grads(file='./pickles/int_grads_avg.pickle')
 
 	# compute integrated grads for whole dataset.testdata.X
-	int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
+	# int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
+	# print("saving int_grads")
+	# with open("./pickles/int_grads_avg.pickle", 'wb') as handle:
+	# 	pickle.dump(int_grads, handle)
+
+
 	int_grads_norm = normalise_grads(int_grads)
-	# pickle dump int_grads for future use
-	print("saving int_grads")
-	with open("int_grads_avg.pickle", 'wb') as handle:
-		pickle.dump(int_grads, handle)
+
+
 
 	# compute normal grads for whole dataset.testdata.X
 	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
 	normal_grads_norm = normalise_grads(normal_grads['H'])
-
-
 
 
 	# this updates test_data.X_hat and test_data_attn, needed for corr plot
@@ -293,6 +302,8 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 	# Validating IG amd SG
 	write_ig_to_file(int_grads_norm, normal_grads_norm, preds, testdata_eng)
+
+	exit(0)
 
 	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
 	                test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
