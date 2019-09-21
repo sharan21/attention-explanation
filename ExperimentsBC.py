@@ -8,6 +8,7 @@ from datetime import datetime
 
 def train_dataset(dataset, config='lstm', n_iter=2):
 	try:
+		#building the config and initializing the BC model with it through trainer wrapper class
 		config = configurations[config](dataset)
 		trainer = Trainer(dataset, config=config, _type=dataset.trainer_type)
 		trainer.train(dataset.train_data, dataset.dev_data, n_iters=n_iter, save_on_metric=dataset.save_on_metric)
@@ -70,6 +71,282 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
 		return
 
 ################################################################################################ MODIFICATIONS START HERE
+
+
+
+
+
+def integrated_grads_for_instance(embed_coll):
+	# Takes 1 test example embd collection of size [wc, 32, 300] and returns IG of size [xc, 300]
+	int_grads_of_sample = []
+
+	for word in embed_coll: # each word is [32, 300]
+		pass
+
+
+
+
+
+def get_collection_from_embeddings(embd_sent, steps=32):
+	# takes test sentence embedding list [wc, 300] and converts into collection [steps, wc, 300]
+	# embd_sent is a list of ndarrays
+
+	embed_collection = []
+
+	for e in embd_sent[0]: #word wise
+
+
+		zero_vector = np.zeros_like(e)
+		diff = e-zero_vector
+		inc = np.divide(diff, steps)
+
+		buffer = []
+		buffer.append(list(zero_vector))
+
+		for i in range(steps-2):
+			zero_vector = np.add(zero_vector, inc)
+			buffer.append(list(zero_vector))
+
+		buffer.append(list(e))
+
+		embed_collection.append(buffer)
+
+	return embed_collection
+
+
+
+
+
+
+
+
+
+
+
+def get_embeddings_from_testdata(test_data, embd_dict):
+	# takes one instance of testdata of shape 1xWC and returns embds of instance of shape 1xWCx300
+	# returns list of ndarrays
+
+	embd_sentence = []
+
+	for t in test_data: # token wise
+		embd_sentence.append(embd_dict[t])
+
+	return embd_sentence
+
+
+
+
+def generate_graphs_on_latest_model(dataset, config='lstm'):
+
+
+
+
+	config = configurations[config](dataset)
+	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
+
+	# 'evaluator' is wrapper for your loaded model
+	print("getting evaluator")
+	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
+
+	#get imdb vectorizer
+	print("getting imdb vectorizer")
+	file = open('./pickles/imdb_vectorizer.pickle', 'rb')
+	imdb_vectorizer = pickle.load(file)
+
+	#get idx2word and reverse dict
+	idx2word = imdb_vectorizer.idx2word
+	word2idx = imdb_vectorizer.word2idx
+
+	# Get embed dictionary from imdb vectorizer
+	imdb_embd_dict = dataset.vec.embeddings
+
+
+
+	# Convert dataset.testdata.X [4356, WC] to dataset.testdata.X.embd
+	print("getting embds of testdata")
+	test_data_embeds = []
+
+	for i in range(2):
+
+		test_data_embeds.append(get_embeddings_from_testdata(dataset.test_data.X[i], imdb_embd_dict))
+
+	single_sentence_embd_col = get_collection_from_embeddings(test_data_embeds, steps=50)
+
+
+	####### TEST #######
+
+	single_word_embds = single_sentence_embd_col[0]
+
+	# preds, attn = evaluator.evaluate(dataset.test_data, save_results=False)
+
+	preds, attn = evaluator.evaluate_outputs_from_embeds(single_word_embds)
+
+
+
+
+
+
+
+
+
+
+
+
+	exit(0)
+
+
+
+
+
+	# get testdata in back to english
+	print("getting testdata back in english")
+	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
+
+	# load int_grads to save time
+	#int_grads = load_int_grads(file='./pickles/int_grads_avg.pickle')
+	#int_grads_norm = normalise_grads(int_grads)
+
+	# compute integrated grads for whole dataset.testdata.X
+	# int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
+	# print("saving int_grads")
+	# with open("./pickles/int_grads_avg.pickle", 'wb') as handle:
+	# 	pickle.dump(int_grads, handle)
+
+
+
+
+	# compute normal grads for whole dataset.testdata.X
+	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
+	# normal_grads_norm = normalise_grads(normal_grads['H'])
+
+
+	normal_grads = None
+	int_grads = None
+
+
+	# this updates test_data.X_hat and test_data_attn, needed for corr plot
+	preds, attn = evaluator.evaluate(dataset.test_data, save_results=False)
+
+	exit(0)
+
+
+
+	# Validating IG amd SG
+	# rite_ig_to_file(int_grads_norm, normal_grads_norm, preds, testdata_eng)
+
+
+
+	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
+	                test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
+
+
+
+
+
+
+
+###################################################################################################################   MODIFICATIONS END HERE
+
+
+def generate_adversarial_examples(dataset, config='lstm'):
+	evaluator = run_evaluator_on_latest_model(dataset, config)
+	config = configurations[config](dataset)
+	plot_adversarial_examples(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data)
+
+
+def generate_logodds_examples(dataset, config='lstm'):
+	evaluator = run_evaluator_on_latest_model(dataset, config)
+	config = configurations[config](dataset)
+	plot_logodds_examples(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data)
+
+
+def run_logodds_experiment(dataset, config='lstm'):
+	model = get_latest_model(os.path.join('outputs', dataset.name, 'LR+TFIDF'))
+	print(model)
+	logodds = pickle.load(open(os.path.join(model, 'logodds.p'), 'rb'))
+	evaluator = run_evaluator_on_latest_model(dataset, config)
+	evaluator.logodds_attention_experiment(dataset.test_data, logodds, save_results=True)
+
+
+def run_logodds_substitution_experiment(dataset):
+	model = get_latest_model(os.path.join('outputs', dataset.name, 'LR+TFIDF'))
+	print(model)
+	logodds = pickle.load(open(os.path.join(model, 'logodds.p'), 'rb'))
+	evaluator = run_evaluator_on_latest_model(dataset)
+	evaluator.logodds_substitution_experiment(dataset.test_data, logodds, save_results=True)
+
+
+def get_top_words(dataset, config='lstm'):
+	evaluator = run_evaluator_on_latest_model(dataset, config)
+	test_data = dataset.test_data
+	test_data.top_words_attn = find_top_words_in_all(dataset, test_data.X, test_data.attn_hat)
+
+
+def get_results(path):
+	latest_model = get_latest_model(path)
+	if latest_model is not None:
+		evaluations = json.load(open(os.path.join(latest_model, 'evaluate.json'), 'r'))
+		return evaluations
+	else:
+		raise LookupError("No Latest Model ... ")
+
+
+names = {
+	'vanilla_lstm': 'LSTM',
+	'lstm': 'LSTM + Additive Attention',
+	'logodds_lstm': 'LSTM + Log Odds Attention',
+	'lr': 'LR + BoW',
+	'logodds_lstm_post': 'LSTM + Additive Attention (Log Odds at Test)'
+}
+
+
+def push_all_models(dataset, keys):
+	model_evals = {}
+	for e in ['vanilla_lstm', 'lstm', 'logodds_lstm']:
+		config = configurations[e](dataset)
+		path = os.path.join(config['training']['basepath'], config['training']['exp_dirname'])
+		evals = get_results(path)
+		model_evals[names[e]] = {keys[k]: evals[k] for k in keys}
+
+	path = os.path.join('outputs', dataset.name, 'LR+TFIDF')
+	evals = get_results(path)
+	model_evals[names['lr']] = {keys[k]: evals[k] for k in keys}
+
+	path = os.path.join('outputs', dataset.name, 'lstm+tanh+logodds(posthoc)')
+	evals = get_results(path)
+	model_evals[names['logodds_lstm_post']] = {keys[k]: evals[k] for k in keys}
+
+	df = pd.DataFrame(model_evals).transpose()
+	df['Model'] = df.index
+	df = df.loc[[names[e] for e in ['lr', 'vanilla_lstm', 'lstm', 'logodds_lstm_post', 'logodds_lstm']]]
+
+	os.makedirs(os.path.join('graph_outputs', 'evals'), exist_ok=True)
+	df.to_csv(os.path.join('graph_outputs', 'evals', dataset.name + '+lstm+tanh.csv'), index=False)
+	return df
+
+
+
+
+
+
+
+
+
+
+
+
+
+######################################################################################################################## OLD CODE
+
+
+
+
+
+
+
+
+
 
 def integrated_gradients(grads, testdata, grads_wrt='H'):
 
@@ -195,6 +472,8 @@ def generate_integrated_grads(evaluator, dataset, avg = False):
 
 	return(int_grads)
 
+
+
 def get_sentence_from_testdata(vec, testdata):
 	# testdata.X is a list of ndarrays
 	reverse_dict = vec.idx2word
@@ -255,143 +534,4 @@ def write_ig_to_file(int_grads, normal_grads_norm , preds, testdata_eng, iter=10
 			f.write("Normal grad says\n")
 			f.write(str(n))
 			f.write("\n")
-
-
-
-def generate_graphs_on_latest_model(dataset, config='lstm'):
-	config = configurations[config](dataset)
-	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
-
-	# 'evaluator' is wrapper for your loaded model
-	print("getting evaluator")
-	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
-
-	#get imdb vectorizer
-	print("getting imdb vectorizer")
-	file = open('./pickles/imdb_vectorizer.pickle', 'rb')
-	imdb_vectorizer = pickle.load(file)
-
-	# Extract embeddings from the dataset vocab, shape [size of vocab, 300]
-	model = 'fasttext.simple.300d'
-	imdb_vectorizer_embd = imdb_vectorizer.extract_embeddings_from_torchtext(model)
-
-
-
-
-
-
-	# get testdata in back to english
-	print("getting testdata back in english")
-	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
-
-	# load int_grads to save time
-	int_grads = load_int_grads(file='./pickles/int_grads_avg.pickle')
-
-	# compute integrated grads for whole dataset.testdata.X
-	int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
-	# print("saving int_grads")
-	# with open("./pickles/int_grads_avg.pickle", 'wb') as handle:
-	# 	pickle.dump(int_grads, handle)
-
-
-	int_grads_norm = normalise_grads(int_grads)
-
-
-
-	# compute normal grads for whole dataset.testdata.X
-	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
-	normal_grads_norm = normalise_grads(normal_grads['H'])
-
-
-	# this updates test_data.X_hat and test_data_attn, needed for corr plot
-	preds, attn = evaluator.evaluate(dataset.test_data, save_results=False)
-
-	# Validating IG amd SG
-	write_ig_to_file(int_grads_norm, normal_grads_norm, preds, testdata_eng)
-
-	exit(0)
-
-	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
-	                test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
-
-
-
-###################################################################################################################   MODIFICATIONS END HERE
-
-
-def generate_adversarial_examples(dataset, config='lstm'):
-	evaluator = run_evaluator_on_latest_model(dataset, config)
-	config = configurations[config](dataset)
-	plot_adversarial_examples(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data)
-
-
-def generate_logodds_examples(dataset, config='lstm'):
-	evaluator = run_evaluator_on_latest_model(dataset, config)
-	config = configurations[config](dataset)
-	plot_logodds_examples(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data)
-
-
-def run_logodds_experiment(dataset, config='lstm'):
-	model = get_latest_model(os.path.join('outputs', dataset.name, 'LR+TFIDF'))
-	print(model)
-	logodds = pickle.load(open(os.path.join(model, 'logodds.p'), 'rb'))
-	evaluator = run_evaluator_on_latest_model(dataset, config)
-	evaluator.logodds_attention_experiment(dataset.test_data, logodds, save_results=True)
-
-
-def run_logodds_substitution_experiment(dataset):
-	model = get_latest_model(os.path.join('outputs', dataset.name, 'LR+TFIDF'))
-	print(model)
-	logodds = pickle.load(open(os.path.join(model, 'logodds.p'), 'rb'))
-	evaluator = run_evaluator_on_latest_model(dataset)
-	evaluator.logodds_substitution_experiment(dataset.test_data, logodds, save_results=True)
-
-
-def get_top_words(dataset, config='lstm'):
-	evaluator = run_evaluator_on_latest_model(dataset, config)
-	test_data = dataset.test_data
-	test_data.top_words_attn = find_top_words_in_all(dataset, test_data.X, test_data.attn_hat)
-
-
-def get_results(path):
-	latest_model = get_latest_model(path)
-	if latest_model is not None:
-		evaluations = json.load(open(os.path.join(latest_model, 'evaluate.json'), 'r'))
-		return evaluations
-	else:
-		raise LookupError("No Latest Model ... ")
-
-
-names = {
-	'vanilla_lstm': 'LSTM',
-	'lstm': 'LSTM + Additive Attention',
-	'logodds_lstm': 'LSTM + Log Odds Attention',
-	'lr': 'LR + BoW',
-	'logodds_lstm_post': 'LSTM + Additive Attention (Log Odds at Test)'
-}
-
-
-def push_all_models(dataset, keys):
-	model_evals = {}
-	for e in ['vanilla_lstm', 'lstm', 'logodds_lstm']:
-		config = configurations[e](dataset)
-		path = os.path.join(config['training']['basepath'], config['training']['exp_dirname'])
-		evals = get_results(path)
-		model_evals[names[e]] = {keys[k]: evals[k] for k in keys}
-
-	path = os.path.join('outputs', dataset.name, 'LR+TFIDF')
-	evals = get_results(path)
-	model_evals[names['lr']] = {keys[k]: evals[k] for k in keys}
-
-	path = os.path.join('outputs', dataset.name, 'lstm+tanh+logodds(posthoc)')
-	evals = get_results(path)
-	model_evals[names['logodds_lstm_post']] = {keys[k]: evals[k] for k in keys}
-
-	df = pd.DataFrame(model_evals).transpose()
-	df['Model'] = df.index
-	df = df.loc[[names[e] for e in ['lr', 'vanilla_lstm', 'lstm', 'logodds_lstm_post', 'logodds_lstm']]]
-
-	os.makedirs(os.path.join('graph_outputs', 'evals'), exist_ok=True)
-	df.to_csv(os.path.join('graph_outputs', 'evals', dataset.name + '+lstm+tanh.csv'), index=False)
-	return df
 
