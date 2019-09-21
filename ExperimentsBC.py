@@ -193,8 +193,6 @@ def generate_integrated_grads(evaluator, dataset, avg = False):
 
 		int_grads.append(int_grads_of_sample)
 
-
-
 	return(int_grads)
 
 def get_sentence_from_testdata(vec, testdata):
@@ -273,6 +271,14 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	file = open('./pickles/imdb_vectorizer.pickle', 'rb')
 	imdb_vectorizer = pickle.load(file)
 
+	# Extract embeddings from the dataset vocab, shape [size of vocab, 300]
+	model = 'fasttext.simple.300d'
+	imdb_vectorizer_embd = imdb_vectorizer.extract_embeddings_from_torchtext(model)
+
+
+
+
+
 
 	# get testdata in back to english
 	print("getting testdata back in english")
@@ -282,7 +288,7 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	int_grads = load_int_grads(file='./pickles/int_grads_avg.pickle')
 
 	# compute integrated grads for whole dataset.testdata.X
-	# int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
+	int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
 	# print("saving int_grads")
 	# with open("./pickles/int_grads_avg.pickle", 'wb') as handle:
 	# 	pickle.dump(int_grads, handle)
