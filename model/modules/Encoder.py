@@ -128,20 +128,26 @@ class EncoderAverage(Encoder) :
 		# self.embedding is of type nn.Embedding, with no hooks, with initialised with pre_embed weights to convert seq to embed
 
 
-		# this flow will fail when data.maxlen == hidden_size, must fix
 
-		if(data.seq.shape[1] == data.maxlen): # if true, get embeddings of data.seq
+
+		if(len(data.seq.shape) == 2): # if true, get embeddings of data.seq
+
 			seq = data.seq
 			lengths = data.lengths
 
 			#embedding is tensor of shape [32, 39, 300] => [bsize, max_length, embd_size]
+			print("looking up embds!")
 			embedding = self.embedding(seq) #(B, L, E)
+			#above function turns int64 data to float64 data, must replicate the same step in skip_embds flow
 
 			output = self.activation(self.projection(embedding)) # Z = tanh(WX + B), Z is [bsize, hidden_size]
 			h = output.mean(1) # take the mean of all bsize hidden states
 
 		else: # if false, directly use embeddings and find output
-			embedding = data.seq
+			print("skipping embds lookup!")
+			embedding = data.seq.type(torch.FloatTensor)
+
+			# convert
 			output = self.activation(self.projection(embedding))  # Z = tanh(WX + B), Z is [bsize, hidden_size]
 			h = output.mean(1)  # take the mean of all bsize hidden states
 

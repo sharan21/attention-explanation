@@ -4,6 +4,8 @@ from Transparency.configurations import configurations
 from Transparency.Trainers.TrainerBC import Trainer, Evaluator
 from Transparency.model.LR import LR
 from datetime import datetime
+from itertools import zip_longest
+
 
 
 def train_dataset(dataset, config='lstm', n_iter=2):
@@ -83,6 +85,10 @@ def integrated_grads_for_instance(embed_coll):
 	for word in embed_coll: # each word is [32, 300]
 		pass
 
+def swap_axis(test):
+	# swap 0 and 1 axis of 3d list
+
+	return [[i for i in element if i is not None] for element in  list(zip_longest(*test))]
 
 
 
@@ -91,42 +97,55 @@ def get_collection_from_embeddings(embd_sent, steps=32):
 	# takes test sentence embedding list [wc, 300] and converts into collection [steps, wc, 300]
 	# embd_sent is a list of ndarrays
 
+
 	embed_collection = []
 
-	for e in embd_sent[0]: #word wise
+	for e in embd_sent: #word wise
 
 
-		zero_vector = np.zeros_like(e)
-		diff = e-zero_vector
-		inc = np.divide(diff, steps)
+			zero_vector = np.zeros_like(e)
+			diff = e-zero_vector
+			inc = np.divide(diff, steps)
 
-		buffer = []
-		buffer.append(list(zero_vector))
-
-		for i in range(steps-2):
-			zero_vector = np.add(zero_vector, inc)
+			buffer = []
 			buffer.append(list(zero_vector))
 
-		buffer.append(list(e))
+			for i in range(steps-2):
+				zero_vector = np.add(zero_vector, inc)
+				buffer.append(list(zero_vector))
 
-		embed_collection.append(buffer)
+			buffer.append(list(e))
+
+			embed_collection.append(buffer)
 
 	return embed_collection
 
+def get_complete_testdata_embed_col(dataset, imdb_embd_dict, testdata_count=1):
+
+	# returns tesdata of shape [No.of.instances, Steps, WC, hidden_size] for IG
+	# testdata_count => how many sentences to convert, max = 4356 for imdb
+
+	print("converting dataset.testdata.X.embeddings to dataset.testdata.X.embedding.collection")
+
+	test_data_embeds = []
+
+	for i in tqdm(range(testdata_count)):
+		embds = get_embeddings_for_testdata(dataset.test_data.X[i], imdb_embd_dict)
+		embds_col = get_collection_from_embeddings(embds, steps=50)
+
+		# swap axis 0 and 1 to ensure evaluator.evaluate is fed properly
+		embds_col_swapped = swap_axis(embds_col)
+
+		test_data_embeds.append(embds_col_swapped)
+
+	return test_data_embeds
 
 
 
 
-
-
-
-
-
-
-def get_embeddings_from_testdata(test_data, embd_dict):
+def get_embeddings_for_testdata(test_data, embd_dict):
 	# takes one instance of testdata of shape 1xWC and returns embds of instance of shape 1xWCx300
 	# returns list of ndarrays
-
 	embd_sentence = []
 
 	for t in test_data: # token wise
@@ -136,61 +155,41 @@ def get_embeddings_from_testdata(test_data, embd_dict):
 
 
 
-
 def generate_graphs_on_latest_model(dataset, config='lstm'):
-
-
 
 
 	config = configurations[config](dataset)
 	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
 
-	# 'evaluator' is wrapper for your loaded model
+	"""Get evaluator"""
 	print("getting evaluator")
-	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
+	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type) # 'evaluator' is wrapper for your loaded model
 
-	#get imdb vectorizer
+	"""get imdb vectorizer"""
 	print("getting imdb vectorizer")
 	file = open('./pickles/imdb_vectorizer.pickle', 'rb')
 	imdb_vectorizer = pickle.load(file)
 
-	#get idx2word and reverse dict
+	"""get idx2word and reverse dict"""
 	idx2word = imdb_vectorizer.idx2word
 	word2idx = imdb_vectorizer.word2idx
 
-	# Get embed dictionary from imdb vectorizer
+	"""Get embed dictionary from imdb vectorizer"""
 	imdb_embd_dict = dataset.vec.embeddings
 
 
-
-	# Convert dataset.testdata.X [4356, WC] to dataset.testdata.X.embd
-	print("getting embds of testdata")
-	test_data_embeds = []
-
-	for i in range(2):
-
-		test_data_embeds.append(get_embeddings_from_testdata(dataset.test_data.X[i], imdb_embd_dict))
-
-	single_sentence_embd_col = get_collection_from_embeddings(test_data_embeds, steps=50)
+	"""Get Testdata_embd_collection of shape [testdata_count, Steps, Wordcount, Hiddensize] """
+	test_data_embd_col = get_complete_testdata_embed_col(dataset, imdb_embd_dict, testdata_count=5)
 
 
-	####### TEST #######
+	"""IG is computed sentence by sentence, iterate through test_data_embd_col"""
 
-	single_word_embds = single_sentence_embd_col[0]
+	# testing evaluator.evaluate_outputs_from_embeds()
+	sample = 0
+	one_sample = test_data_embd_col[sample]
 
-	# preds, attn = evaluator.evaluate(dataset.test_data, save_results=False)
-
-	preds, attn = evaluator.evaluate_outputs_from_embeds(single_word_embds)
-
-
-
-
-
-
-
-
-
-
+	# preds_from_raw_input, attn_from_raw_input = evaluator.evaluate(dataset.test_data, save_results=False)
+	preds_from_embd, attn_from_embd = evaluator.evaluate_outputs_from_embeds(one_sample)
 
 
 	exit(0)
@@ -199,15 +198,20 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 
 
-	# get testdata in back to english
+
+
+
+	"""get testdata in back to english"""
 	print("getting testdata back in english")
 	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
 
-	# load int_grads to save time
-	#int_grads = load_int_grads(file='./pickles/int_grads_avg.pickle')
-	#int_grads_norm = normalise_grads(int_grads)
 
-	# compute integrated grads for whole dataset.testdata.X
+	"""load int_grads to save time"""
+	int_grads = load_int_grads(file='./pickles/int_grads_avg.pickle')
+	int_grads_norm = normalise_grads(int_grads)
+
+
+	"""Compute Integrated Grads (Old)"""
 	# int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
 	# print("saving int_grads")
 	# with open("./pickles/int_grads_avg.pickle", 'wb') as handle:
@@ -215,25 +219,21 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 
 
-
-	# compute normal grads for whole dataset.testdata.X
+	""" Compute Normal Grads"""
 	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
-	# normal_grads_norm = normalise_grads(normal_grads['H'])
+	normal_grads_norm = normalise_grads(normal_grads['H'])
 
+	"""Set grads to None for normal repo functioning"""
+	# normal_grads = None
+	# int_grads = None
 
-	normal_grads = None
-	int_grads = None
-
-
-	# this updates test_data.X_hat and test_data_attn, needed for corr plot
-	preds, attn = evaluator.evaluate(dataset.test_data, save_results=False)
 
 	exit(0)
 
+	preds, attn = evaluator.evaluate(dataset.test_data, save_results=False)
 
-
-	# Validating IG amd SG
-	# rite_ig_to_file(int_grads_norm, normal_grads_norm, preds, testdata_eng)
+	"""Validate and write IG and NG results to file"""
+	write_ig_to_file(int_grads_norm, normal_grads_norm, preds, testdata_eng)
 
 
 

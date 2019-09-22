@@ -20,8 +20,8 @@ if args.output_dir is not None :
 encoders = ['cnn', 'lstm', 'average'] if args.encoder == 'all' else [args.encoder]
 
 if args.attention in ['tanh', 'all'] :
-    train_dataset_on_encoders(dataset, encoders)
-#    generate_graphs_on_encoders(dataset, encoders)
+    # train_dataset_on_encoders(dataset, encoders)
+    generate_graphs_on_encoders(dataset, encoders)
 if args.attention in ['dot', 'all'] :
     encoders = [e + '_dot' for e in encoders]
     train_dataset_on_encoders(dataset, encoders)

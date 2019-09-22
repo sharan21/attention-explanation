@@ -177,6 +177,7 @@ class Model() :
 				torch.cuda.empty_cache()
 
 				batch_doc = data[n:n+bsize] #data => batch_doc => [bsize, WC] => [bsize, maxlen]
+				# from batch_doc => batch_data, type gets converted from float64 => torch.int64 instead of torch.float64
 				batch_data = BatchHolder(batch_doc)
 
 				self.encoder(batch_data) #forward() hook of encoder
