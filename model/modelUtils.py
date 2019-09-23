@@ -23,7 +23,7 @@ def get_sorting_index_with_noise_from_lengths(lengths, noise_frac) :
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 class BatchHolder() : 
-	def __init__(self, data) :
+	def __init__(self, data, is_embed=False) :
 
 		maxlen = max([len(x) for x in data]) #takes the largest word count in the batch
 
@@ -34,6 +34,8 @@ class BatchHolder() :
 		expanded = []
 		masks = []
 
+
+
 		for _, d in enumerate(data) :
 
 			rem = maxlen - len(d)
@@ -43,7 +45,13 @@ class BatchHolder() :
 
 		"""Ignore the highlighted warnings"""
 		self.lengths = torch.LongTensor(np.array(lengths)).to(device)
-		self.seq = torch.LongTensor(np.array(expanded, dtype='int64')).to(device)
+
+		if(is_embed):
+			self.seq = torch.FloatTensor(np.array(expanded, dtype='float64')).to(device) #if LongTensor is used, embeddings will be truncated to 0
+		else:
+			self.seq = torch.LongTensor(np.array(expanded, dtype='float64')).to(device)
+
+
 		self.masks = torch.ByteTensor(np.array(masks)).to(device)
 
 		self.hidden = None

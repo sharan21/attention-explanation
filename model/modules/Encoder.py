@@ -4,6 +4,7 @@ import torch.nn as nn
 from model.modelUtils import isTrue
 from allennlp.common import Registrable
 from allennlp.nn.activations import Activation
+import numpy as np
 
 class Encoder(nn.Module, Registrable) :
 	def forward(self, **kwargs) :
@@ -128,8 +129,6 @@ class EncoderAverage(Encoder) :
 		# self.embedding is of type nn.Embedding, with no hooks, with initialised with pre_embed weights to convert seq to embed
 
 
-
-
 		if(len(data.seq.shape) == 2): # if true, get embeddings of data.seq
 
 			seq = data.seq
@@ -141,11 +140,17 @@ class EncoderAverage(Encoder) :
 			#above function turns int64 data to float64 data, must replicate the same step in skip_embds flow
 
 			output = self.activation(self.projection(embedding)) # Z = tanh(WX + B), Z is [bsize, hidden_size]
+			# output is [32,maxlen,128], embedding is [32,maxlen, 300]
 			h = output.mean(1) # take the mean of all bsize hidden states
+			# h is [32, 128]
 
 		else: # if false, directly use embeddings and find output
 			print("skipping embds lookup!")
 			embedding = data.seq.type(torch.FloatTensor)
+
+			# f = open('embedding.p')
+			# np.savetxt()
+
 
 			# convert
 			output = self.activation(self.projection(embedding))  # Z = tanh(WX + B), Z is [bsize, hidden_size]

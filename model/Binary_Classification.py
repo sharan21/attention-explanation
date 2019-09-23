@@ -160,6 +160,14 @@ class Model() :
 	def evaluate(self, data) :
 		# data is dataset.tesdata.X, list of lists of shape [4356, wc] or [steps, hidden_size] for direct embds
 
+		if(len(data) == 50):
+
+			is_embed = True
+		else:
+			is_embed = False
+
+		print("is_embed is {}".format(is_embed))
+
 		self.encoder.train()
 		self.decoder.train()
 
@@ -178,7 +186,8 @@ class Model() :
 
 				batch_doc = data[n:n+bsize] #data => batch_doc => [bsize, WC] => [bsize, maxlen]
 				# from batch_doc => batch_data, type gets converted from float64 => torch.int64 instead of torch.float64
-				batch_data = BatchHolder(batch_doc)
+
+				batch_data = BatchHolder(batch_doc, is_embed=is_embed)
 
 				self.encoder(batch_data) #forward() hook of encoder
 				self.decoder(batch_data)
@@ -200,6 +209,7 @@ class Model() :
 		return outputs, attns
 
 	def gradient_mem(self, data) :
+
 		self.encoder.train()
 		self.decoder.train()
 		bsize = self.bsize
@@ -215,23 +225,34 @@ class Model() :
 			grads_xxex = []
 			grads_H = []
 
-			for i in range(self.decoder.output_size) :
+			for i in range(self.decoder.output_size) : #output size is 1
 				batch_data = BatchHolder(batch_doc)
 				batch_data.keep_grads = True
 				batch_data.detach = True
 
+				# running encoder updates batch_data with embeddings and hidden in normal flow
 				self.encoder(batch_data)
+				# running decoder updates batch_data.embeddings.grad from None using grad_fn hook
 				self.decoder(batch_data)
 
 				torch.sigmoid(batch_data.predict[:, i]).sum().backward()
-				g = batch_data.embedding.grad
+
+				# till here embed and raw input have save flow
+
+				"""get XxE[X]"""
+
+				g = batch_data.embedding.grad # g is a tensor of shape 32,39,300
 				em = batch_data.embedding
 				g1 = (g * em).sum(-1)
 
 				grads_xxex.append(g1.cpu().data.numpy())
 
+				"""get XxE"""
+
 				g1 = (g * self.encoder.embedding.weight.sum(0)).sum(-1)
 				grads_xxe.append(g1.cpu().data.numpy())
+
+				"""get H"""
 
 				g1 = batch_data.hidden.grad.sum(-1)
 				grads_H.append(g1.cpu().data.numpy())
