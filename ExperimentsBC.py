@@ -74,6 +74,89 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
 
 ################################################################################################ MODIFICATIONS START HERE
 
+
+def integrated_gradients(grads, testdata, grads_wrt='H'):
+
+	#grads is of size steps x wordcount of sample sentence
+
+	# grads is a dict of 3 gradients, H , XxE, and XxE[X]
+	grads_list = grads[grads_wrt]
+
+	input = np.array(testdata).sum(-1)
+
+
+
+	x_dash = input[0]
+	x = input[-1]
+	diff = x-x_dash
+
+	d_alpha = np.divide(diff, len(testdata))
+
+	integral = np.zeros_like(x)
+
+	for g in grads_list:
+		integral_body = np.multiply(g, d_alpha)
+		integral = np.add(integral, integral_body)
+
+
+	int_grads = np.multiply(integral,diff)
+
+
+	return int_grads
+
+def normalise_grads(grads_list):
+
+	cleaned = []
+
+	for g in grads_list:
+		sum = np.sum(g)
+		c = [e/sum*100 for e in g]
+		cleaned.append(c)
+
+	return cleaned
+
+
+
+def make_single_attri_dict(txt, int_grads, norm_grads_unpruned):
+
+	words = [e for e in txt.split(" ")]
+
+	int_grads_dict = {}
+	norm_grads_dict = {}
+	norm_grads_pruned = (norm_grads_unpruned[0])[:len(int_grads[0])]
+
+	assert len(int_grads[0]) == len(norm_grads_pruned)
+
+	for i in range(len(words)):
+		int_grads_dict[words[i]] = int_grads[0][i]
+		norm_grads_dict[words[i]] = norm_grads_unpruned[0][i]
+
+	return(int_grads_dict, norm_grads_dict)
+
+
+def write_ig_to_file(int_grads, normal_grads_norm , preds, testdata_eng, iter=10):
+
+	print("Writing IG vs SG results to file")
+
+	with open("./analysis/ig_vs_norm.txt", "a") as f:
+
+		now = datetime.now()
+		current_time = now.strftime("%H:%M:%S")
+		f.write("\n\nCurrent Time = {}".format(current_time))
+
+		for i in range(iter):
+
+			f.write("\nSentence:\n")
+			f.write("prediction is: {}\n".format(preds[i]))
+			f.write(testdata_eng[i]+"\n")
+			i, n = make_single_attri_dict(testdata_eng[i], int_grads[i], normal_grads_norm[i])
+			f.write("IG Says:\n")
+			f.write(str(i)+"\n")
+			f.write("Normal grad says\n")
+			f.write(str(n))
+			f.write("\n")
+
+
 def get_sentence_from_testdata(vec, testdata):
 	# testdata.X is a list of ndarrays
 	reverse_dict = vec.idx2word
@@ -98,21 +181,26 @@ def load_int_grads(file='./pickles/int_grads.pickle'):
 	return int_grads
 
 
-def integrated_grads_for_instance(embed_coll):
-	# Takes 1 test example embd collection of size [wc, 32, 300] and returns IG of size [xc, 300]
+def integrated_grads_for_instance(grads, steps=50):
+
+	grads_list = grads['H']
 	int_grads_of_sample = []
 
-	for word in embed_coll:  # each word is [32, 300]
-		pass
+	sum = np.zeros_like(grads_list[0])
 
+	for sent in grads_list:
+		sum = np.add(sum, sent)
+
+	avg_grads = np.divide(sum, steps)
+
+	return avg_grads
 
 def swap_axis(test):
 	# swap 0 and 1 axis of 3d list
-
 	return [[i for i in element if i is not None] for element in list(zip_longest(*test))]
 
 
-def get_collection_from_embeddings(embd_sent, steps=32):
+def get_collection_from_embeddings(embd_sent, steps=50):
 	# takes test sentence embedding list [wc, 300] and converts into collection [steps, wc, 300]
 	# embd_sent is a list of ndarrays
 
@@ -211,48 +299,59 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	"""Get Testdata_embd_collection of shape [testdata_count, Steps, Wordcount, Hiddensize] """
 	test_data_embd_col = get_complete_testdata_embed_col(dataset, imdb_embd_dict, testdata_count=21)
 
-	"""IG is computed sentence by sentence, iterate through test_data_embd_col"""
+	"""Get preds for testdata from raw input"""
+	preds_from_raw_input, attn_from_raw_input = evaluator.evaluate(dataset.test_data, save_results=False)
+
+	""" Compute Normal Grads"""
+	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
+	normal_grads_norm = normalise_grads(normal_grads['H'])
+
 
 	"""Testing error in pred calc with direct embds"""
+
+	# TODO fix evaluate() to make diff = 0 for embds and raw
+
 	# diff = []
 	# for i in range(20):
 	# 	sample = i
 	# 	one_sample = test_data_embd_col[sample]
-	# 	preds_from_raw_input, attn_from_raw_input = evaluator.evaluate(dataset.test_data, save_results=False)
 	# 	preds, attn = preds_from_raw_input[sample], attn_from_raw_input[sample]
 	# 	preds_from_embd, attn_from_embd = evaluator.evaluate_outputs_from_embeds(one_sample)
 	# 	preds2, attn2 = preds_from_embd[-1], attn_from_embd[-1]
 	# 	diff.append(abs(preds-preds2))
 
 
-	sample = 0
+
+	"""Test get_grads() for custom embeds"""
+	sample = 1
 	one_sample = test_data_embd_col[sample]
+
+	# preds_for_embd, attn_for_embd = evaluator.evaluate_outputs_from_embeds(one_sample)
+	preds, attn = preds_from_raw_input[sample], attn_from_raw_input[sample]
 
 	grads = evaluator.get_grads_from_custom_td(one_sample)
 
-	exit(0)
+	int_grads = integrated_gradients(grads, one_sample, )
+	int_grads_norm = normalise_grads(int_grads)
+	attn_norm = normalise_grads(attn[sample])
 
 
+	# """Validate and write IG and NG results to file"""
+	# write_ig_to_file(int_grads_norm, normal_grads_norm, preds, testdata_eng)
 
-	""" Compute Normal Grads"""
-	# normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
-	# normal_grads_norm = normalise_grads(normal_grads['H'])
 
 	"""Set grads to None for normal repo functioning"""
 	# normal_grads = None
 	# int_grads = None
 
 
-
+	"""Get predictions for entire testdata with raw input"""
 	# preds, attn = evaluator.evaluate(dataset.test_data, save_results=False)
-
-	"""Validate and write IG and NG results to file"""
-	# rite_ig_to_file(int_grads_norm, normal_grads_norm, preds, testdata_eng)
 
 
 	"""Generate graphs for normal grads and int grads"""
-	# generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
-	#                 test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
+	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
+	                test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
 
 
 ###################################################################################################################   MODIFICATIONS END HERE
@@ -338,37 +437,7 @@ def push_all_models(dataset, keys):
 
 
 #
-# def integrated_gradients(grads, testdata, grads_wrt='H'):
-#
-# 	#grads is of size steps x wordcount of sample sentence
-#
-# 	# grads is a dict of 3 gradients, H , XxE, and XxE[X]
-# 	grads_list = grads[grads_wrt]
-#
-#
-# 	x_dash = np.array(testdata[0])
-# 	x = np.array(testdata[-1])
-# 	diff = x-x_dash
-#
-# 	d_alpha = np.divide(diff, len(testdata))
-#
-# 	integral = np.zeros_like(x)
-#
-# 	for g in grads_list:
-# 		integral_body = np.multiply(np.abs(g), d_alpha)
-# 		integral = np.add(integral, integral_body)
-#
-#
-# 	int_grads = np.multiply(integral,diff)
-#
-# 	# perturb int_grads to see effect on corr plot
-# 	# int_grads = np.abs(np.random.randn(*int_grads.shape))
-# 	# int_grads = np.zeros_like(int_grads)
-#
-#
-# 	# int_grads = np.divide(int_grads, np.sum(int_grads))
-#
-# 	return int_grads
+
 #
 # def integrated_gradients_mod(grads, testdata, grads_wrt='H'):
 # 	# this is a mod of IG that will only calculate the average grads of input along X'...X
@@ -407,17 +476,7 @@ def push_all_models(dataset, keys):
 #
 #
 #
-# def normalise_grads(grads_list):
-# 	# takes grads['H'/'XxE'/'XxE[X]'
-#
-# 	cleaned = []
-#
-# 	for g in grads_list:
-# 		sum = np.sum(g)
-# 		c = [e/sum*100 for e in g]
-# 		cleaned.append(c)
-#
-# 	return cleaned
+
 #
 # def generate_input_collection_from_sample(dataset, steps = 10, sample=0):
 # 	"""Returns list of ndarrays"""
@@ -464,46 +523,6 @@ def push_all_models(dataset, keys):
 #
 #
 #
-
-#
-# def make_single_attri_dict(txt, int_grads, norm_grads_unpruned):
-#
-# 	words = [e for e in txt.split(" ")]
-#
-# 	int_grads_dict = {}
-# 	norm_grads_dict = {}
-# 	norm_grads_pruned = (norm_grads_unpruned[0])[:len(int_grads[0])]
-#
-# 	assert len(int_grads[0]) == len(norm_grads_pruned)
-#
-# 	for i in range(len(words)):
-# 		int_grads_dict[words[i]] = int_grads[0][i]
-# 		norm_grads_dict[words[i]] = norm_grads_unpruned[0][i]
-#
-# 	return(int_grads_dict, norm_grads_dict)
-#
-#
-# def write_ig_to_file(int_grads, normal_grads_norm , preds, testdata_eng, iter=10):
-#
-# 	print("Writing IG vs SG results to file")
-#
-# 	with open("./analysis/ig_vs_norm.txt", "a") as f:
-#
-# 		now = datetime.now()
-# 		current_time = now.strftime("%H:%M:%S")
-# 		f.write("\n\nCurrent Time = {}".format(current_time))
-#
-# 		for i in range(iter):
-#
-# 			f.write("\nSentence:\n")
-# 			f.write("prediction is: {}\n".format(preds[i]))
-# 			f.write(testdata_eng[i]+"\n")
-# 			i, n = make_single_attri_dict(testdata_eng[i], int_grads[i], normal_grads_norm[i])
-# 			f.write("IG Says:\n")
-# 			f.write(str(i)+"\n")
-# 			f.write("Normal grad says\n")
-# 			f.write(str(n))
-# 			f.write("\n")
 
 
 	# """load int_grads to save time"""

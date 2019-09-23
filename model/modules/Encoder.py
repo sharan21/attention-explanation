@@ -148,11 +148,7 @@ class EncoderAverage(Encoder) :
 			print("skipping embds lookup!")
 			embedding = data.seq.type(torch.FloatTensor)
 
-			# f = open('embedding.p')
-			# np.savetxt()
-
-
-			# convert
+			# convert embds to h states
 			output = self.activation(self.projection(embedding))  # Z = tanh(WX + B), Z is [bsize, hidden_size]
 			h = output.mean(1)  # take the mean of all bsize hidden states
 

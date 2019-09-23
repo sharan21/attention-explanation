@@ -160,8 +160,8 @@ class Model() :
 	def evaluate(self, data) :
 		# data is dataset.tesdata.X, list of lists of shape [4356, wc] or [steps, hidden_size] for direct embds
 
+		# TODO code a better is_embed check
 		if(len(data) == 50):
-
 			is_embed = True
 		else:
 			is_embed = False
@@ -210,12 +210,24 @@ class Model() :
 
 	def gradient_mem(self, data) :
 
+		# TODO code a better is_embed check
+		if (len(data) == 50):
+			is_embed = True
+		else:
+			is_embed = False
+
+
 		self.encoder.train()
 		self.decoder.train()
 		bsize = self.bsize
 		N = len(data)
 
-		grads = {'XxE' : [], 'XxE[X]' : [], 'H' : []}
+		if(is_embed == False):
+			grads = {'XxE' : [], 'XxE[X]' : [], 'H' : []}
+		else:
+			grads = {'H': []}
+
+
 
 		for n in range(0, N, bsize) :
 			torch.cuda.empty_cache()
@@ -226,44 +238,57 @@ class Model() :
 			grads_H = []
 
 			for i in range(self.decoder.output_size) : #output size is 1
-				batch_data = BatchHolder(batch_doc)
+				batch_data = BatchHolder(batch_doc, is_embed=is_embed)
 				batch_data.keep_grads = True
 				batch_data.detach = True
 
-				# running encoder updates batch_data with embeddings and hidden in normal flow
+				# running encoder updates batch_data with embedding, embedding.grad_fn() hook and hidden tensor
 				self.encoder(batch_data)
-				# running decoder updates batch_data.embeddings.grad from None using grad_fn hook
+				# running decoder calculates batch_data.embeddings.grad using grad_fn hook
 				self.decoder(batch_data)
 
 				torch.sigmoid(batch_data.predict[:, i]).sum().backward()
 
-				# till here embed and raw input have save flow
 
-				"""get XxE[X]"""
+				if(is_embed == False):
 
-				g = batch_data.embedding.grad # g is a tensor of shape 32,39,300
-				em = batch_data.embedding
-				g1 = (g * em).sum(-1)
+					"""get XxE[X]"""
 
-				grads_xxex.append(g1.cpu().data.numpy())
+					# g is a tensor of shape 32,39,300
+					g = batch_data.embedding.grad
+					# em is a tensor of shape 32,39,300
+					em = batch_data.embedding
+					g1 = (g * em).sum(-1)
 
-				"""get XxE"""
+					grads_xxex.append(g1.cpu().data.numpy())
 
-				g1 = (g * self.encoder.embedding.weight.sum(0)).sum(-1)
-				grads_xxe.append(g1.cpu().data.numpy())
+					"""get XxE"""
+
+					g1 = (g * self.encoder.embedding.weight.sum(0)).sum(-1)
+					grads_xxe.append(g1.cpu().data.numpy())
+
+
 
 				"""get H"""
 
 				g1 = batch_data.hidden.grad.sum(-1)
 				grads_H.append(g1.cpu().data.numpy())
 
-			grads_xxe = np.array(grads_xxe).swapaxes(0, 1)
-			grads_xxex = np.array(grads_xxex).swapaxes(0, 1)
-			grads_H = np.array(grads_H).swapaxes(0, 1)
 
-			grads['XxE'].append(grads_xxe)
-			grads['XxE[X]'].append(grads_xxex)
+
+			if(is_embed == False):
+
+				grads_xxe = np.array(grads_xxe).swapaxes(0, 1)
+				grads['XxE'].append(grads_xxe)
+
+				grads_xxex = np.array(grads_xxex).swapaxes(0, 1)
+				grads['XxE[X]'].append(grads_xxex)
+
+			grads_H = np.array(grads_H).swapaxes(0, 1)
 			grads['H'].append(grads_H)
+
+
+
 
 		for k in grads :
 			grads[k] = [x for y in grads[k] for x in y]
