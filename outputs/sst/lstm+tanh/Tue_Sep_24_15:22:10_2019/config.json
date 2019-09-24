@@ -1,0 +1,1 @@
+{"model": {"encoder": {"vocab_size": 13826, "embed_size": 300, "type": "rnn", "hidden_size": 128}, "decoder": {"attention": {"type": "tanh"}, "output_size": 1}}, "training": {"bsize": 32, "weight_decay": 1e-05, "pos_weight": [0.9135802469135803], "basepath": "outputs/", "exp_dirname": "sst/lstm+tanh"}}

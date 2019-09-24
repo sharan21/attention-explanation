@@ -269,14 +269,31 @@ def get_embeddings_for_testdata_full(test_data_full, embd_dict, testdata_count=5
 	return embed_col
 
 
+
+def generate_graphs_on_latest_model_sst(dataset, config='lstm') :
+
+	config = configurations[config](dataset)
+	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
+	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
+	_ = evaluator.evaluate(dataset.test_data, save_results=False)
+
+	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
+
+	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data, norm_grads=normal_grads)
+
+
+
+
 def generate_graphs_on_latest_model(dataset, config='lstm'):
+
+	print("INSIDE GENERATE GRAPHS FOR IMDB FUNCTION")
 	config = configurations[config](dataset)
 	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
 
 	"""Get evaluator"""
 	print("getting evaluator")
 	evaluator = Evaluator(dataset, latest_model,
-	                      _type=dataset.trainer_type)  # 'evaluator' is wrapper for your loaded model
+						  _type=dataset.trainer_type)  # 'evaluator' is wrapper for your loaded model
 
 	"""get imdb vectorizer"""
 	print("getting imdb vectorizer")
@@ -309,9 +326,6 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 
 	"""Testing error in pred calc with direct embds"""
-	preds_from_embd, attn_from_embd = evaluator.evaluate_outputs_from_embeds(test_data_embd_col[0])
-
-	# TODO fix evaluate() to make diff = 0 for embds and raw
 
 	# diff = []
 	# for i in range(20):
@@ -322,15 +336,14 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	# 	preds2, attn2 = preds_from_embd[-1], attn_from_embd[-1]
 	# 	diff.append(abs(preds-preds2))
 
-	preds_from_embd, attn_from_embd = evaluator.evaluate_outputs_from_embeds(test_data_embd_col[3])
 
-	"""Sanity check"""
-	sample = 3
-	embds = get_embeddings_for_testdata(dataset.test_data.X[sample], embd_dict=imdb_embd_dict)
-	embds_zero = np.zeros_like(embds)
-
-	pred_for_x_dash = evaluator.evaluate_outputs_from_embeds(np.expand_dims(embds_zero, axis=0))
-	pred_for_x = evaluator.evaluate_outputs_from_embeds()
+	# """Sanity check"""
+	# sample = 3
+	# embds = get_embeddings_for_testdata(dataset.test_data.X[sample], embd_dict=imdb_embd_dict)
+	# embds_zero = np.zeros_like(embds)
+	#
+	# pred_for_x_dash = evaluator.evaluate_outputs_from_embeds(np.expand_dims(embds_zero, axis=0))
+	# pred_for_x = evaluator.evaluate_outputs_from_embeds()
 
 	"""get int_grads for custom embeds"""
 
@@ -379,7 +392,7 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 	"""Generate graphs for normal grads and int grads"""
 	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
-	                test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
+					test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
 
 
 ###################################################################################################################   MODIFICATIONS END HERE

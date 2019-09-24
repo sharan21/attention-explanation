@@ -52,7 +52,7 @@ class Dataset() :
         if args is not None and hasattr(args, 'data_dir') :
             path = os.path.join(args.data_dir, path)
             
-        self.vec = pickle.load(open(path, 'rb')) # reading from vec_imdb.p
+        self.vec = pickle.load(open(path, 'rb'))
 
         X, Xd, Xt = self.vec.seq_text['train'], self.vec.seq_text['dev'], self.vec.seq_text['test']
         y, yd, yt = self.vec.label['train'], self.vec.label['dev'], self.vec.label['test']
