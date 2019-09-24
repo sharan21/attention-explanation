@@ -145,7 +145,7 @@ class EncoderAverage(Encoder) :
 			# h is [32, 128]
 
 		else: # if false, directly use embeddings and find output
-			print("skipping embds lookup!")
+			# print("skipping embds lookup!")
 			embedding = data.seq.type(torch.FloatTensor)
 
 			# convert embds to h states

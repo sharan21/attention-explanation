@@ -130,7 +130,7 @@ def make_single_attri_dict(txt, int_grads, norm_grads_unpruned):
 	return(int_grads_dict, norm_grads_dict)
 
 
-def write_ig_to_file(int_grads, normal_grads_norm , preds, testdata_eng, iter=10):
+def write_ig_to_file(int_grads, normal_grads_norm , preds, testdata_eng):
 
 	print("Writing IG vs SG results to file")
 
@@ -140,7 +140,7 @@ def write_ig_to_file(int_grads, normal_grads_norm , preds, testdata_eng, iter=10
 		current_time = now.strftime("%H:%M:%S")
 		f.write("\n\nCurrent Time = {}".format(current_time))
 
-		for i in range(iter):
+		for i in range(len(testdata_eng)):
 
 			f.write("\nSentence:\n")
 			f.write("prediction is: {}\n".format(preds[i]))
@@ -319,12 +319,19 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	# 	diff.append(abs(preds-preds2))
 
 
+	"""Sanity check"""
+	# sample = 0
+	# embds = get_embeddings_for_testdata(dataset.test_data.X[sample], embd_dict=imdb_embd_dict)
+	# embds_zero = np.zeros_like(embds)
+	#
+	# pred_for_x_dash = evaluator.evaluate_outputs_from_embeds()
+	# pred_for_x = evaluator.evaluate_outputs_from_embeds()
 
 	"""Test get_grads() for custom embeds"""
 
 	int_grads = []
 
-	for i in tqdm(range(50)):
+	for i in tqdm(range(50)): # only for 50 sentences
 
 		sample = i
 		one_sample = test_data_embd_col[sample]
@@ -347,12 +354,13 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 
 	"""Normalize int grads"""
-	# int_grads_norm = normalise_grads(int_grads)
+	int_grads_norm = normalise_grads(int_grads)
 	# attn_mod = attn[0:len(int_grads_norm)]*100
 
 
 	"""Validate and write IG and NG results to file"""
-	# write_ig_to_file(int_grads_norm, normal_grads_norm, preds, testdata_eng)
+	# write_ig_to_file(int_grads_norm, normal_grads_norm[0:50], preds_from_raw_input[0:50], testdata_eng[0:50])
+
 
 
 	"""Set grads to None for normal repo functioning"""

@@ -157,14 +157,14 @@ class Model() :
 			loss_total += float(loss.data.cpu().item())
 		return loss_total*bsize/N
 
-	def evaluate(self, data) :
+	def evaluate(self, data, is_embed=False) :
 		# data is dataset.tesdata.X, list of lists of shape [4356, wc] or [steps, hidden_size] for direct embds
 
 		# TODO code a better is_embed check
-		if(len(data) == 50):
-			is_embed = True
-		else:
-			is_embed = False
+		# if(len(data) == 50):
+		# 	is_embed = True
+		# else:
+		# 	is_embed = False
 
 		print("is_embed is {}".format(is_embed))
 
