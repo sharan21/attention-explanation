@@ -35,7 +35,6 @@ class BatchHolder() :
 		masks = []
 
 
-
 		for _, d in enumerate(data) :
 
 			rem = maxlen - len(d)

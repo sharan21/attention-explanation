@@ -157,16 +157,14 @@ class Model() :
 			loss_total += float(loss.data.cpu().item())
 		return loss_total*bsize/N
 
-	def evaluate(self, data, is_embed=False) :
+	def evaluate(self, data) :
 		# data is dataset.tesdata.X, list of lists of shape [4356, wc] or [steps, hidden_size] for direct embds
+		if(len(np.array(data).shape) == 3): # (sts
+			is_embed = True
+		else:
+			is_embed = False
 
-		# TODO code a better is_embed check
-		# if(len(data) == 50):
-		# 	is_embed = True
-		# else:
-		# 	is_embed = False
-
-		print("is_embed is {}".format(is_embed))
+		# print("is_embed is {}".format(is_embed))
 
 		self.encoder.train()
 		self.decoder.train()
@@ -210,8 +208,7 @@ class Model() :
 
 	def gradient_mem(self, data) :
 
-		# TODO code a better is_embed check
-		if (len(data) == 50):
+		if (len(np.array(data).shape) == 3):
 			is_embed = True
 		else:
 			is_embed = False

@@ -225,7 +225,7 @@ def get_complete_testdata_embed_col(dataset, imdb_embd_dict, testdata_count=1):
 	# returns tesdata of shape [No.of.instances, Steps, WC, hidden_size] for IG
 	# testdata_count => how many sentences to convert, max = 4356 for imdb
 
-	print("converting dataset.testdata.X.embeddings to dataset.testdata.X.embedding.collection")
+
 	test_data_embeds = []
 
 	for i in tqdm(range(testdata_count)):
@@ -295,17 +295,21 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
 
 	"""Get Testdata_embd_collection of shape [testdata_count, Steps, Wordcount, Hiddensize] """
+	print("converting dataset.testdata.X.embeddings to dataset.testdata.X.embedding.collection")
 	test_data_embd_col = get_complete_testdata_embed_col(dataset, imdb_embd_dict, testdata_count=51)
 
 	"""Get preds for testdata from raw input"""
+	print("gettings predictions and updating testdata.yhat and testdata.attn")
 	preds_from_raw_input, attn_from_raw_input = evaluator.evaluate(dataset.test_data, save_results=False)
 
 	""" Compute Normal Grads"""
+	print("getting NG for testdata")
 	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
 	normal_grads_norm = normalise_grads(normal_grads['H'])
 
 
 	"""Testing error in pred calc with direct embds"""
+	preds_from_embd, attn_from_embd = evaluator.evaluate_outputs_from_embeds(test_data_embd_col[0])
 
 	# TODO fix evaluate() to make diff = 0 for embds and raw
 
@@ -318,16 +322,17 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	# 	preds2, attn2 = preds_from_embd[-1], attn_from_embd[-1]
 	# 	diff.append(abs(preds-preds2))
 
+	preds_from_embd, attn_from_embd = evaluator.evaluate_outputs_from_embeds(test_data_embd_col[3])
 
 	"""Sanity check"""
-	# sample = 0
-	# embds = get_embeddings_for_testdata(dataset.test_data.X[sample], embd_dict=imdb_embd_dict)
-	# embds_zero = np.zeros_like(embds)
-	#
-	# pred_for_x_dash = evaluator.evaluate_outputs_from_embeds()
-	# pred_for_x = evaluator.evaluate_outputs_from_embeds()
+	sample = 3
+	embds = get_embeddings_for_testdata(dataset.test_data.X[sample], embd_dict=imdb_embd_dict)
+	embds_zero = np.zeros_like(embds)
 
-	"""Test get_grads() for custom embeds"""
+	pred_for_x_dash = evaluator.evaluate_outputs_from_embeds(np.expand_dims(embds_zero, axis=0))
+	pred_for_x = evaluator.evaluate_outputs_from_embeds()
+
+	"""get int_grads for custom embeds"""
 
 	int_grads = []
 
@@ -354,7 +359,7 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 
 	"""Normalize int grads"""
-	int_grads_norm = normalise_grads(int_grads)
+	# int_grads_norm = normalise_grads(int_grads)
 	# attn_mod = attn[0:len(int_grads_norm)]*100
 
 
