@@ -135,7 +135,7 @@ class EncoderAverage(Encoder) :
 			lengths = data.lengths
 
 			#embedding is tensor of shape [32, 39, 300] => [bsize, max_length, embd_size]
-			print("looking up embds!")
+			# print("looking up embds!")
 			embedding = self.embedding(seq) #(B, L, E)
 			#above function turns int64 data to float64 data, must replicate the same step in skip_embds flow
 

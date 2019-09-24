@@ -77,13 +77,9 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
 
 def integrated_gradients(grads, testdata, grads_wrt='H'):
 
-	#grads is of size steps x wordcount of sample sentence
 
-	# grads is a dict of 3 gradients, H , XxE, and XxE[X]
 	grads_list = grads[grads_wrt]
-
 	input = np.array(testdata).sum(-1)
-
 
 
 	x_dash = input[0]
@@ -237,9 +233,11 @@ def get_complete_testdata_embed_col(dataset, imdb_embd_dict, testdata_count=1):
 		embds_col = get_collection_from_embeddings(embds, steps=50)
 
 		# swap axis 0 and 1 to ensure evaluator.evaluate is fed properly
-		assert embds_col[i][-1][5] == embds[i][5]  # check that the last embd in col == embd of testdata instance
+		# assert embds_col[i][-1][5] == embds[i][5]  # check that the last embd in col == embd of testdata instance
 		embds_col_swapped = swap_axis(embds_col)
 		test_data_embeds.append(embds_col_swapped)
+
+	print("done")
 
 	return test_data_embeds
 
@@ -297,7 +295,7 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
 
 	"""Get Testdata_embd_collection of shape [testdata_count, Steps, Wordcount, Hiddensize] """
-	test_data_embd_col = get_complete_testdata_embed_col(dataset, imdb_embd_dict, testdata_count=21)
+	test_data_embd_col = get_complete_testdata_embed_col(dataset, imdb_embd_dict, testdata_count=51)
 
 	"""Get preds for testdata from raw input"""
 	preds_from_raw_input, attn_from_raw_input = evaluator.evaluate(dataset.test_data, save_results=False)
@@ -323,20 +321,37 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 
 	"""Test get_grads() for custom embeds"""
-	sample = 1
-	one_sample = test_data_embd_col[sample]
 
-	# preds_for_embd, attn_for_embd = evaluator.evaluate_outputs_from_embeds(one_sample)
-	preds, attn = preds_from_raw_input[sample], attn_from_raw_input[sample]
+	int_grads = []
 
-	grads = evaluator.get_grads_from_custom_td(one_sample)
+	for i in tqdm(range(50)):
 
-	int_grads = integrated_gradients(grads, one_sample, )
-	int_grads_norm = normalise_grads(int_grads)
-	attn_norm = normalise_grads(attn[sample])
+		sample = i
+		one_sample = test_data_embd_col[sample]
+
+		preds_for_embd, attn_for_embd = evaluator.evaluate_outputs_from_embeds(one_sample)
+		# preds, attn = preds_from_raw_input[sample], attn_from_raw_input[sample]
+
+		grads = evaluator.get_grads_from_custom_td(one_sample)
+
+		int_grads.append(integrated_gradients(grads, one_sample))
 
 
-	# """Validate and write IG and NG results to file"""
+
+	"""Saving new IG as pickle"""
+	# print("saving")
+	# with open("int_grads_new.pickle" , "wb") as file:
+	# 	pickle.dump(obj=int_grads, file=file)
+	#
+	# print("saved")
+
+
+	"""Normalize int grads"""
+	# int_grads_norm = normalise_grads(int_grads)
+	# attn_mod = attn[0:len(int_grads_norm)]*100
+
+
+	"""Validate and write IG and NG results to file"""
 	# write_ig_to_file(int_grads_norm, normal_grads_norm, preds, testdata_eng)
 
 
@@ -355,6 +370,11 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 
 ###################################################################################################################   MODIFICATIONS END HERE
+
+
+
+
+
 
 
 def generate_adversarial_examples(dataset, config='lstm'):
@@ -433,105 +453,4 @@ def push_all_models(dataset, keys):
 	df.to_csv(os.path.join('graph_outputs', 'evals', dataset.name + '+lstm+tanh.csv'), index=False)
 	return df
 
-######################################################################################################################## OLD CODE
 
-
-#
-
-#
-# def integrated_gradients_mod(grads, testdata, grads_wrt='H'):
-# 	# this is a mod of IG that will only calculate the average grads of input along X'...X
-#
-# 	#grads is of size steps x wordcount of sample sentence
-#
-# 	# grads is a dict of 3 gradients, H , XxE, and XxE[X]
-# 	grads_list = grads[grads_wrt]
-#
-# 	x_dash = np.array(testdata[0])
-# 	x = np.array(testdata[-1])
-# 	diff = x-x_dash
-#
-# 	d_alpha = np.divide(diff, len(testdata))
-#
-# 	integral = np.zeros_like(x)
-#
-# 	for g in grads_list: # calculate the summatiom
-# 		# integral_body = np.multiply(np.abs(g), d_alpha)
-# 		integral = np.add(integral, np.abs(g))
-#
-# 	int_grads = np.divide(integral, len(testdata)) #calulate the mean
-# 	int_grads = np.multiply(int_grads, diff)
-#
-#
-# 	# int_grads = np.multiply(integral,diff)
-#
-# 	# perturb int_grads to see effect on corr plot
-# 	# int_grads = np.abs(np.random.randn(*int_grads.shape))
-# 	# int_grads = np.zeros_like(int_grads)
-#
-#
-# 	# int_grads = np.divide(int_grads, np.sum(int_grads))
-#
-# 	return int_grads
-#
-#
-#
-
-#
-# def generate_input_collection_from_sample(dataset, steps = 10, sample=0):
-# 	"""Returns list of ndarrays"""
-# 	collection = []
-# 	final_vector = dataset.test_data.X[sample]
-# 	#5497 => horrible
-#
-# 	zero_vector = [0]*len(final_vector)
-#
-# 	diff = list(np.abs(np.array(final_vector) - np.array(zero_vector)))
-# 	inc = np.array([int(e/steps) for e in diff])
-#
-# 	collection.append(zero_vector)
-#
-# 	add = np.array(zero_vector)
-#
-# 	for i in range(steps-2): #-2 because we append zero and final vector
-# 		add = add + inc
-# 		collection.append(list(add))
-#
-# 	collection.append(final_vector)
-#
-# 	return(collection)
-#
-#
-# def generate_integrated_grads(evaluator, dataset, avg = False):
-#
-# 	print("\nGenerating IG for {} input vectors from test_data...\n".format(len(dataset.test_data.X)))
-#
-# 	int_grads = []
-#
-# 	for i in tqdm(range(len(dataset.test_data.X))): # number of testing examples
-# 		collection = generate_input_collection_from_sample(dataset, sample=i)
-# 		# _ = evaluator.evaluate(collection, save_results=False)
-# 		grads = evaluator.get_grads_from_custom_td(collection)
-#
-# 		int_grads_of_sample = integrated_gradients_mod(grads, collection)
-# 		# int_grads_of_sample = process_int_grads(int_grads_of_sample)
-#
-#
-# 		int_grads.append(int_grads_of_sample)
-#
-# 	return(int_grads)
-#
-#
-#
-
-
-	# """load int_grads to save time"""
-	# # int_grads = load_int_grads(file='./pickles/int_grads_avg.pickle')
-	# # int_grads_norm = normalise_grads(int_grads)
-	#
-	# """Compute Integrated Grads (Old)"""
-	# # int_grads = generate_integrated_grads(evaluator, dataset) # get integrated gradients, [4356*Word_count]
-	# # print("saving int_grads")
-	# # with open("./pickles/int_grads_avg.pickle", 'wb') as handle:
-	# # 	pickle.dump(int_grads, handle)
-#
