@@ -158,8 +158,9 @@ class Model() :
 		return loss_total*bsize/N
 
 	def evaluate(self, data) :
-		# data is dataset.tesdata.X, list of lists of shape [4356, wc] or [steps, hidden_size] for direct embds
-		if(len(np.array(data).shape) == 3): # (sts
+		# data is dataset.tesdata.X, list of lists of shape [examples, wc] or [steps, wc, hidden_size] for direct embds
+
+		if(len(np.array(data).shape) == 3):
 			is_embed = True
 		else:
 			is_embed = False
@@ -225,7 +226,6 @@ class Model() :
 			grads = {'H': []}
 
 
-
 		for n in range(0, N, bsize) :
 			torch.cuda.empty_cache()
 			batch_doc = data[n:n+bsize]
@@ -234,14 +234,14 @@ class Model() :
 			grads_xxex = []
 			grads_H = []
 
-			for i in range(self.decoder.output_size) : #output size is 1
+			for i in range(self.decoder.output_size) :
 				batch_data = BatchHolder(batch_doc, is_embed=is_embed)
 				batch_data.keep_grads = True
 				batch_data.detach = True
 
-				# running encoder updates batch_data with embedding, embedding.grad_fn() hook and hidden tensor
+				# running encoder updates batch_data with embedding, embedding.grad_fn() hook and hidden, hidden.grad_fn()
 				self.encoder(batch_data)
-				# running decoder calculates batch_data.embeddings.grad using grad_fn hook
+				# running decoder calculates batch_data.embeddings.grad and batch_data.hidden.grad
 				self.decoder(batch_data)
 
 				torch.sigmoid(batch_data.predict[:, i]).sum().backward()
