@@ -18,6 +18,7 @@ class EncoderRNN(Encoder) :
 		super().__init__()
 		self.vocab_size = vocab_size
 		self.embed_size = embed_size
+		self.hidden_size = hidden_size
 
 		if pre_embed is not None :
 			print("Setting Embedding")
@@ -28,17 +29,25 @@ class EncoderRNN(Encoder) :
 		else :
 			self.embedding = nn.Embedding(vocab_size, embed_size, padding_idx=0)
 
-		self.hidden_size = hidden_size
+
 		self.rnn = nn.LSTM(input_size=embed_size, hidden_size=hidden_size, batch_first=True, bidirectional=True)
 
 		self.output_size = self.hidden_size * 2
 
 	def forward(self, data) :
 
-
 		seq = data.seq
 		lengths = data.lengths
-		embedding = self.embedding(seq) #(B, L, E)
+
+		if(len(data.seq.shape) == 2): # look up embeds table
+			embedding = self.embedding(seq)
+
+		else: #data is embeds
+			embedding = data.seq.type(torch.FloatTensor)
+			embedding.requires_grad = True
+
+
+
 		packseq = nn.utils.rnn.pack_padded_sequence(embedding, lengths, batch_first=True, enforce_sorted=False)
 		output, (h, c) = self.rnn(packseq)
 		output, lengths = nn.utils.rnn.pad_packed_sequence(output, batch_first=True, padding_value=0)
@@ -48,6 +57,7 @@ class EncoderRNN(Encoder) :
 
 		if isTrue(data, 'keep_grads') :
 			data.embedding = embedding
+
 			data.embedding.retain_grad()
 			data.hidden.retain_grad()
 

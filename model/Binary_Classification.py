@@ -160,7 +160,7 @@ class Model() :
 	def evaluate(self, data) :
 		# data is dataset.tesdata.X, list of lists of shape [examples, wc] or [steps, wc, hidden_size] for direct embds
 
-		if(len(np.array(data).shape) == 3):
+		if(len(np.array(data).shape) == 3): #fails when leading length is very big, shape will be 2 dimentional
 			is_embed = True
 		else:
 			is_embed = False
@@ -220,10 +220,7 @@ class Model() :
 		bsize = self.bsize
 		N = len(data)
 
-		if(is_embed == False):
-			grads = {'XxE' : [], 'XxE[X]' : [], 'H' : []}
-		else:
-			grads = {'H': []}
+		grads = {'XxE' : [], 'XxE[X]' : [], 'H' : []}
 
 
 		for n in range(0, N, bsize) :
@@ -247,23 +244,20 @@ class Model() :
 				torch.sigmoid(batch_data.predict[:, i]).sum().backward()
 
 
-				if(is_embed == False):
+				"""get XxE[X]"""
 
-					"""get XxE[X]"""
+				# g is a tensor of shape 32,39,300
+				g = batch_data.embedding.grad
+				# em is a tensor of shape 32,39,300
+				em = batch_data.embedding
+				g1 = (g * em).sum(-1)
 
-					# g is a tensor of shape 32,39,300
-					g = batch_data.embedding.grad
-					# em is a tensor of shape 32,39,300
-					em = batch_data.embedding
-					g1 = (g * em).sum(-1)
+				grads_xxex.append(g1.cpu().data.numpy())
 
-					grads_xxex.append(g1.cpu().data.numpy())
+				"""get XxE"""
 
-					"""get XxE"""
-
-					g1 = (g * self.encoder.embedding.weight.sum(0)).sum(-1)
-					grads_xxe.append(g1.cpu().data.numpy())
-
+				g1 = (g * self.encoder.embedding.weight.sum(0)).sum(-1)
+				grads_xxe.append(g1.cpu().data.numpy())
 
 
 				"""get H"""
@@ -272,19 +266,14 @@ class Model() :
 				grads_H.append(g1.cpu().data.numpy())
 
 
+			grads_xxe = np.array(grads_xxe).swapaxes(0, 1)
+			grads['XxE'].append(grads_xxe)
 
-			if(is_embed == False):
-
-				grads_xxe = np.array(grads_xxe).swapaxes(0, 1)
-				grads['XxE'].append(grads_xxe)
-
-				grads_xxex = np.array(grads_xxex).swapaxes(0, 1)
-				grads['XxE[X]'].append(grads_xxex)
+			grads_xxex = np.array(grads_xxex).swapaxes(0, 1)
+			grads['XxE[X]'].append(grads_xxex)
 
 			grads_H = np.array(grads_H).swapaxes(0, 1)
 			grads['H'].append(grads_H)
-
-
 
 
 		for k in grads :
