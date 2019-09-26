@@ -157,6 +157,7 @@ class EncoderAverage(Encoder) :
 		else: # if false, directly use embeddings and find output
 			# print("skipping embds lookup!")
 			embedding = data.seq.type(torch.FloatTensor)
+			embedding.requires_grad = True # ensures that embeddings computation tape is tracked
 
 			# convert embds to h states
 			output = self.activation(self.projection(embedding))  # Z = tanh(WX + B), Z is [bsize, hidden_size]

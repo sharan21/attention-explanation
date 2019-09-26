@@ -6,9 +6,9 @@ from Transparency.model.LR import LR
 from datetime import datetime
 from itertools import zip_longest
 
-def generate_graphs_on_latest_model(dataset, config='lstm') :
 
-	print("INISDE SST")
+def generate_graphs_on_latest_model(dataset, config='lstm'):
+
 	config = configurations[config](dataset)
 	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
 
@@ -16,201 +16,76 @@ def generate_graphs_on_latest_model(dataset, config='lstm') :
 	print("getting evaluator")
 	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
 
+	print("gettings predictions and updating testdata.yhat and testdata.attn")
 	_ = evaluator.evaluate(dataset.test_data, save_results=False)
 
 	"""Get trained nn.embedding weights"""
 	embd_dict = np.array(evaluator.model.encoder.embedding.weight.data)
 
-
 	"""get pre trained vectorizer"""
-	print("getting imdb vectorizer")
-	file = open('./pickles/sst_vectorizer.pickle', 'rb')
+	print("getting vectorizer")
+	file = open('./pickles/imdb_vectorizer.pickle', 'rb')
 	vectorizer = pickle.load(file)
 
 	"""get idx2word and reverse dict"""
 	idx2word = vectorizer.idx2word
 	word2idx = vectorizer.word2idx
 
-
 	"""get testdata in back to english"""
-	testdata_eng = get_sentence_from_testdata(vectorizer, dataset.test_data.X)
-	print("getting testdata back in english")
-
-
-
+	# testdata_eng = get_sentence_from_testdata(vectorizer, dataset.test_data.X)
+	# print("getting testdata back in english")
 
 	"""get complete testdata as embeddings"""
-
-	test_data_embd_full = []
-	for e in dataset.test_data.X:
-		test_data_embd_full.append(get_embeddings_for_testdata(e, embd_dict))
-
+	# test_data_embd_full = []
+	# for e in dataset.test_data.X:
+	# 	test_data_embd_full.append(get_embeddings_for_testdata(e, embd_dict))
 
 	"""Get Testdata_embd_collection of shape [testdata_count, Steps, Wordcount, Hiddensize] """
 	print("converting dataset.testdata.X.embeddings to dataset.testdata.X.embedding.collection")
-	# test_data_embd_col = get_complete_testdata_embed_col(dataset, embd_dict, testdata_count=len(dataset.test_data.X), steps=50)
+	test_data_embd_col = get_complete_testdata_embed_col(dataset, embd_dict, testdata_count=500, steps=50)
 
-	"""Get preds for testdata from raw input"""
-	print("gettings predictions and updating testdata.yhat and testdata.attn")
-	preds_from_raw_input, attn_from_raw_input = evaluator.evaluate(dataset.test_data, save_results=False)
-
-	""" Compute Normal Grads"""
-	print("getting NG for testdata")
-	# normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
-	# normal_grads_norm = normalise_grads(normal_grads['H'])
-
-	"""get int_grads for custom embeds"""
-
-	# print("Getting 50 instances of int_grads for test_data")
-	#
-	# int_grads = []
-	#
-	# for i in tqdm(range(len(dataset.test_data.X))):  # only for 50 sentences
-	#
-	# 	sample = i
-	# 	one_sample = test_data_embd_col[sample]
-	#
-	# 	preds_for_embd, attn_for_embd = evaluator.evaluate_outputs_from_embeds(one_sample)
-	# 	# preds, attn = preds_from_raw_input[sample], attn_from_raw_input[sample]
-	#
-	# 	grads = evaluator.get_grads_from_custom_td(one_sample)
-	#
-	# 	int_grads.append(integrated_gradients(grads, one_sample, grads_wrt='XxE[X]'))
-	#
-	# """Saving new IG as pickle"""
-	# print("saving IG")
-	# with open("int_grads_new.pickle" , "wb") as file:
-	# 	pickle.dump(obj=int_grads, file=file)
-	#
+	# """Saving test col as pickle"""
+	# print("saving test col")
+	# with open("./pickles/test.pickle", "wb") as file:
+	# 	pickle.dump(obj=test_data_embd_col, file=file)
 	# print("saved")
 
-	"""Loading IG from pickle"""
-
-	print("getting IG from pickle")
-	file = open('./int_grads_new.pickle', 'rb')
-	int_grads = pickle.load(file)
-
-
-
-	"""Sanity check for IG"""
-
-	# sample = 0
-	# one_sample = test_data_embd_col[sample]
-	# preds_for_embd_sample, attn_for_embd_sample = evaluator.evaluate_outputs_from_embeds(one_sample)
-	# preds_from_embd_full = evaluator.evaluate_outputs_from_embeds(test_data_embd_full[0:50])
-	# preds_for_embd, attn_for_emb = evaluator.evaluate_outputs_from_embeds(test_data_embd_col[sample])
-
-	# pred, attn = evaluator.evaluate_outputs_from_embeds(test_data_embd_full[0:200])
-
-
-	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data, int_grads=int_grads, norm_grads=None)
-
-
-
-
-def generate_graphs_on_latest_model_imdb(dataset, config='lstm'):
-
-	print("INSIDE GENERATE GRAPHS FOR IMDB FUNCTION")
-	config = configurations[config](dataset)
-	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
-
-	"""Get evaluator"""
-	print("getting evaluator")
-	evaluator = Evaluator(dataset, latest_model,  _type=dataset.trainer_type)  # 'evaluator' is wrapper for your loaded model
-
-	"""get imdb vectorizer"""
-	print("getting imdb vectorizer")
-	file = open('./pickles/imdb_vectorizer.pickle', 'rb')
-	imdb_vectorizer = pickle.load(file)
-
-	"""get idx2word and reverse dict"""
-	idx2word = imdb_vectorizer.idx2word
-	word2idx = imdb_vectorizer.word2idx
-
-	"""Get embed dictionary from imdb vectorizer"""
-	imdb_embd_dict = dataset.vec.embeddings
-
-	"""get testdata in back to english"""
-	print("getting testdata back in english")
-	testdata_eng = get_sentence_from_testdata(imdb_vectorizer, dataset.test_data.X)
-
-	"""Get Testdata_embd_collection of shape [testdata_count, Steps, Wordcount, Hiddensize] """
-	print("converting dataset.testdata.X.embeddings to dataset.testdata.X.embedding.collection")
-	test_data_embd_col = get_complete_testdata_embed_col(dataset, imdb_embd_dict, testdata_count=51)
-
 	"""Get preds for testdata from raw input"""
-	print("gettings predictions and updating testdata.yhat and testdata.attn")
+	print("getting preds and attn for dataset.test_data")
 	preds_from_raw_input, attn_from_raw_input = evaluator.evaluate(dataset.test_data, save_results=False)
 
 	""" Compute Normal Grads"""
 	print("getting NG for testdata")
-	# normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
+	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
 	# normal_grads_norm = normalise_grads(normal_grads['H'])
 
-
-	"""Testing error in pred calc with direct embds"""
-
-	# diff = []
-	# for i in range(20):
-	# 	sample = i
-	# 	one_sample = test_data_embd_col[sample]
-	# 	preds, attn = preds_from_raw_input[sample], attn_from_raw_input[sample]
-	# 	preds_from_embd, attn_from_embd = evaluator.evaluate_outputs_from_embeds(one_sample)
-	# 	preds2, attn2 = preds_from_embd[-1], attn_from_embd[-1]
-	# 	diff.append(abs(preds-preds2))
-
-
-	"""Sanity check"""
-	# sample = 3
-	# embds = get_embeddings_for_testdata(dataset.test_data.X[sample], embd_dict=imdb_embd_dict)
-	# embds_zero = np.zeros_like(embds)
-	#
-	# pred_for_x_dash = evaluator.evaluate_outputs_from_embeds(np.expand_dims(embds_zero, axis=0))
-	# pred_for_x = evaluator.evaluate_outputs_from_embeds()
-
 	"""get int_grads for custom embeds"""
+
+	print("Getting 50 instances of int_grads for test_data")
 
 	int_grads = []
 
-	for i in tqdm(range(50)): # only for 50 sentences
-
+	for i in tqdm(range(len(test_data_embd_col))):
 		sample = i
 		one_sample = test_data_embd_col[sample]
-
-		preds_for_embd, attn_for_embd = evaluator.evaluate_outputs_from_embeds(one_sample)
-		# preds, attn = preds_from_raw_input[sample], attn_from_raw_input[sample]
-
 		grads = evaluator.get_grads_from_custom_td(one_sample)
+		int_grads.append(integrated_gradients(grads, one_sample, grads_wrt='XxE'))
 
-		int_grads.append(integrated_gradients(grads, one_sample))
-
-
-
-
-
-
-	"""Normalize int grads"""
-	# int_grads_norm = normalise_grads(int_grads)
-	# attn_mod = attn[0:len(int_grads_norm)]*100
+	"""Saving new IG as pickle"""
+	print("saving IG")
+	with open("./pickles/int_grads_x_500.pickle", "wb") as file:
+		pickle.dump(obj=int_grads, file=file)
+	print("saved")
 
 
-	"""Validate and write IG and NG results to file"""
-	# write_ig_to_file(int_grads_norm, normal_grads_norm[0:50], preds_from_raw_input[0:50], testdata_eng[0:50])
+	# """Loading IG from pickle"""
+	#
+	# print("getting IG from pickle")
+	# file = open('./pickles/int_grads_x_1000.pickle', 'rb')
+	# int_grads = pickle.load(file)
 
-
-
-	"""Set grads to None for normal repo functioning"""
-	# normal_grads = None
-	# int_grads = None
-
-
-	"""Get predictions for entire testdata with raw input"""
-	# preds, attn = evaluator.evaluate(dataset.test_data, save_results=False)
-
-
-	"""Generate graphs for normal grads and int grads"""
-	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model,
-					test_data=dataset.test_data, int_grads=int_grads, norm_grads=normal_grads)
+	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
+	                int_grads=int_grads, norm_grads=normal_grads, for_only=len(test_data_embd_col))
 
 
 
@@ -283,53 +158,34 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
 
 
 def integrated_gradients(grads, testdata, grads_wrt='H'):
-
-
 	grads_list = grads[grads_wrt]
 	input = np.array(testdata).sum(-1)
 
-
 	x_dash = input[0]
 	x = input[-1]
-	diff = x-x_dash
-
-	d_alpha = np.divide(diff, len(testdata))
-
-	### old way of finding integral###
-
-	# integral = np.zeros_like(x)
-	#
-	# for g in grads_list:
-	# 	integral_body = np.multiply(g, d_alpha)
-	# 	integral = np.add(integral, integral_body)
-
-	###
+	diff = x - x_dash
 
 	grads_list = np.add(grads_list[:-1], grads_list[1:])
 
 	integral = np.average(np.array(grads_list), axis=0)
 
-
-	int_grads = np.multiply(integral,diff)
-
+	int_grads = np.multiply(integral, diff)
 
 	return int_grads
 
-def normalise_grads(grads_list):
 
+def normalise_grads(grads_list):
 	cleaned = []
 
 	for g in grads_list:
 		sum = np.sum(g)
-		c = [e/sum*100 for e in g]
+		c = [e / sum * 100 for e in g]
 		cleaned.append(c)
 
 	return cleaned
 
 
-
 def make_single_attri_dict(txt, int_grads, norm_grads_unpruned):
-
 	words = [e for e in txt.split(" ")]
 
 	int_grads_dict = {}
@@ -342,27 +198,24 @@ def make_single_attri_dict(txt, int_grads, norm_grads_unpruned):
 		int_grads_dict[words[i]] = int_grads[0][i]
 		norm_grads_dict[words[i]] = norm_grads_unpruned[0][i]
 
-	return(int_grads_dict, norm_grads_dict)
+	return (int_grads_dict, norm_grads_dict)
 
 
-def write_ig_to_file(int_grads, normal_grads_norm , preds, testdata_eng):
-
+def write_ig_to_file(int_grads, normal_grads_norm, preds, testdata_eng):
 	print("Writing IG vs SG results to file")
 
 	with open("./analysis/ig_vs_norm.txt", "a") as f:
-
 		now = datetime.now()
 		current_time = now.strftime("%H:%M:%S")
 		f.write("\n\nCurrent Time = {}".format(current_time))
 
 		for i in range(len(testdata_eng)):
-
 			f.write("\nSentence:\n")
 			f.write("prediction is: {}\n".format(preds[i]))
-			f.write(testdata_eng[i]+"\n")
+			f.write(testdata_eng[i] + "\n")
 			i, n = make_single_attri_dict(testdata_eng[i], int_grads[i], normal_grads_norm[i])
 			f.write("IG Says:\n")
-			f.write(str(i)+"\n")
+			f.write(str(i) + "\n")
 			f.write("Normal grad says\n")
 			f.write(str(n))
 			f.write("\n")
@@ -396,7 +249,6 @@ def load_int_grads(file='./pickles/int_grads.pickle'):
 
 
 def integrated_grads_for_instance(grads, steps=50):
-
 	grads_list = grads['H']
 	int_grads_of_sample = []
 
@@ -408,6 +260,7 @@ def integrated_grads_for_instance(grads, steps=50):
 	avg_grads = np.divide(sum, steps)
 
 	return avg_grads
+
 
 def swap_axis(test):
 	# swap 0 and 1 axis of 3d list
@@ -442,7 +295,6 @@ def get_collection_from_embeddings(embd_sent, steps=50):
 def get_complete_testdata_embed_col(dataset, embd_dict, testdata_count=1, steps=50):
 	# returns tesdata of shape [No.of.instances, Steps, WC, hidden_size] for IG
 	# testdata_count => how many sentences to convert, max = 4356 for imdb
-
 
 	test_data_embeds = []
 
@@ -488,7 +340,6 @@ def get_embeddings_for_testdata_full(test_data_full, embd_dict, testdata_count=5
 
 
 ###################################################################################################################   MODIFICATIONS END HERE
-
 
 
 def generate_adversarial_examples(dataset, config='lstm'):
@@ -566,5 +417,3 @@ def push_all_models(dataset, keys):
 	os.makedirs(os.path.join('graph_outputs', 'evals'), exist_ok=True)
 	df.to_csv(os.path.join('graph_outputs', 'evals', dataset.name + '+lstm+tanh.csv'), index=False)
 	return df
-
-

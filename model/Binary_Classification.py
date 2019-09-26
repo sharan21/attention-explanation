@@ -245,12 +245,16 @@ class Model() :
 
 
 				"""get XxE[X]"""
+				try:
 
-				# g is a tensor of shape 32,39,300
-				g = batch_data.embedding.grad
-				# em is a tensor of shape 32,39,300
-				em = batch_data.embedding
-				g1 = (g * em).sum(-1)
+					# g is a tensor of shape 32,39,300
+					g = batch_data.embedding.grad
+					# em is a tensor of shape 32,39,300
+					em = batch_data.embedding
+					g1 = (g * em).sum(-1)
+
+				except:
+					pass
 
 				grads_xxex.append(g1.cpu().data.numpy())
 
