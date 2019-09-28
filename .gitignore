@@ -7,3 +7,4 @@ outputs
 .idea
 preprocess
 __pycache__
+*.pickle
