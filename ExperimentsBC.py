@@ -7,6 +7,13 @@ from datetime import datetime
 from itertools import zip_longest
 
 
+def generate_graphs_on_latest_model_old(dataset, config='lstm') :
+	config = configurations[config](dataset)
+	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
+	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
+	_ = evaluator.evaluate(dataset.test_data, save_results=False)
+	generate_graphs(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data)
+
 def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 	config = configurations[config](dataset)
@@ -42,13 +49,8 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 	"""Get Testdata_embd_collection of shape [testdata_count, Steps, Wordcount, Hiddensize] """
 	print("converting dataset.testdata.X.embeddings to dataset.testdata.X.embedding.collection")
-	test_data_embd_col = get_complete_testdata_embed_col(dataset, embd_dict, testdata_count=500, steps=50)
+	test_data_embd_col = get_complete_testdata_embed_col(dataset, embd_dict, testdata_count=100, steps=50)
 
-	# """Saving test col as pickle"""
-	# print("saving test col")
-	# with open("./pickles/test.pickle", "wb") as file:
-	# 	pickle.dump(obj=test_data_embd_col, file=file)
-	# print("saved")
 
 	"""Get preds for testdata from raw input"""
 	print("getting preds and attn for dataset.test_data")
@@ -69,27 +71,27 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 		sample = i
 		one_sample = test_data_embd_col[sample]
 		grads = evaluator.get_grads_from_custom_td(one_sample)
-		int_grads.append(integrated_gradients(grads, one_sample, grads_wrt='XxE'))
+		int_grads.append(integrated_gradients(grads, one_sample, grads_wrt='XxE[X]'))
 
 	"""Saving new IG as pickle"""
-	print("saving IG")
-	with open("./pickles/int_grads_x_500.pickle", "wb") as file:
-		pickle.dump(obj=int_grads, file=file)
-	print("saved")
+	# print("saving IG")
+	# with open("./pickles/int_grads_x_500.pickle", "wb") as file:
+	# 	pickle.dump(obj=int_grads, file=file)
+	# print("saved")
 
 
-	# """Loading IG from pickle"""
+	"""Loading IG from pickle"""
 	#
 	# print("getting IG from pickle")
 	# file = open('./pickles/int_grads_x_1000.pickle', 'rb')
 	# int_grads = pickle.load(file)
 
 	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
-	                int_grads=int_grads, norm_grads=normal_grads, for_only=len(test_data_embd_col))
+					int_grads=int_grads, norm_grads=normal_grads, for_only=len(test_data_embd_col))
 
 
 
-def train_dataset(dataset, config='lstm', n_iter=2):
+def train_dataset(dataset, config='lstm', n_iter=1):
 	try:
 		# building the config and initializing the BC model with it through trainer wrapper class
 		config = configurations[config](dataset)

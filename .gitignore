@@ -3,6 +3,7 @@
 *.yml
 *.png
 graphoutputs
+outputs
 .idea
 preprocess
 __pycache__
