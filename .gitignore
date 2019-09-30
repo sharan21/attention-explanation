@@ -1,0 +1,10 @@
+.DS_Store
+*.xml
+*.yml
+*.png
+graphoutputs
+outputs
+.idea
+preprocess
+__pycache__
+*.pickle
