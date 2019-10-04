@@ -1,8 +1,8 @@
-from Transparency.common_code.common import *
+from common_code.common import *
 from Transparency.Trainers.PlottingBC import generate_graphs, plot_adversarial_examples, plot_logodds_examples
 from Transparency.configurations import configurations
-from Transparency.Trainers.TrainerBC import Trainer, Evaluator
-from Transparency.model.LR import LR
+from Trainers.TrainerBC import Trainer, Evaluator
+from model.LR import LR
 from helpers import *
 
 
@@ -14,11 +14,10 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 	int_grads = evaluator.model.integrated_gradient_mem(data = dataset)
 
+	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
+	                int_grads=int_grads, norm_grads=None, for_only=len(int_grads))
 
-	generate_graphs(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data)
-
-
-def generate_graphs_on_latest_model_new(dataset, config='lstm'):
+def generate_graphs_on_latest_model_test(dataset, config='lstm'):
 	dataset_name = dataset.name
 
 	config = configurations[config](dataset)
@@ -58,7 +57,6 @@ def generate_graphs_on_latest_model_new(dataset, config='lstm'):
 	""" Compute Normal Grads"""
 	print("getting NG for testdata")
 	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
-
 	# normal_grads_norm = normalise_grads(normal_grads['H'])
 
 	################################# LIME STARTS HERE #################################
@@ -237,6 +235,9 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
 		evaluator.gradient_experiment(test_data, force_run=force_run)
 		evaluator.permutation_experiment(test_data, force_run=force_run)
 		evaluator.adversarial_experiment(test_data, force_run=force_run)
+		evaluator.integrated_gradient_experiment(dataset, force_run=force_run)
+
+
 	#        evaluator.remove_and_run_experiment(test_data, force_run=force_run)
 	except Exception as e:
 		print(e)

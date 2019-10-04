@@ -4,12 +4,10 @@ import shutil
 from copy import deepcopy
 from typing import Dict
 
-import numpy as np
 import torch
 import torch.nn as nn
 from allennlp.common import Params
 from sklearn.utils import shuffle
-from tqdm import tqdm
 
 from model.modules.Decoder import AttnDecoder
 from model.modules.Encoder import Encoder
