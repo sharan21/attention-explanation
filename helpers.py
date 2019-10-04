@@ -6,11 +6,6 @@ from itertools import zip_longest
 from lime.lime_text import LimeTextExplainer
 
 
-
-
-
-######  IG UTILS
-
 def integrated_gradients(grads, testdata, grads_wrt='H'):
 	grads_list = grads[grads_wrt]
 	input = np.array(testdata).sum(-1)
@@ -20,9 +15,7 @@ def integrated_gradients(grads, testdata, grads_wrt='H'):
 	diff = x - x_dash
 
 	grads_list = np.add(grads_list[:-1], grads_list[1:])
-
 	integral = np.average(np.array(grads_list), axis=0)
-
 	int_grads = np.multiply(integral, diff)
 
 	return int_grads

@@ -21,9 +21,6 @@ file_name = os.path.abspath(__file__)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
-
-
-
 class AdversaryMulti(nn.Module) :
 	def __init__(self, decoder=None) :
 		super().__init__()
@@ -162,48 +159,43 @@ class Model() :
 		return loss_total*bsize/N
 
 	def evaluate(self, data) :
-		# data is dataset.tesdata.X, list of lists of shape [examples, wc] or [steps, wc, hidden_size] for direct embds
 
 		if(len(np.array(data).shape) == 3): #fails when leading length is very big, shape will be 2 dimentional
 			is_embed = True
 		else:
 			is_embed = False
 
-		# print("is_embed is {}".format(is_embed))
 
 		self.encoder.train()
 		self.decoder.train()
 
 		bsize = self.bsize
 
-		N = len(data) # 4356 for regular control, 'steps' for embds
+		N = len(data)
 
 		outputs = []
 		attns = []
 
-		for n in tqdm(range(0, N, bsize)) : #0, 32, 64 ... 4356 ~ 137 steps, 1 if input => embds
+		for n in tqdm(range(0, N, bsize)) :
 
-			try:
 
-				torch.cuda.empty_cache()
+			torch.cuda.empty_cache()
 
-				batch_doc = data[n:n+bsize] #data => batch_doc => [bsize, WC] => [bsize, maxlen]
-				# from batch_doc => batch_data, type gets converted from float64 => torch.int64 instead of torch.float64
+			batch_doc = data[n:n+bsize]
+			# from batch_doc => batch_data, type gets converted from float64 => torch.int64 instead of torch.float64
 
-				batch_data = BatchHolder(batch_doc, is_embed=is_embed)
+			batch_data = BatchHolder(batch_doc, is_embed=is_embed)
 
-				self.encoder(batch_data) #forward() hook of encoder
-				self.decoder(batch_data)
+			self.encoder(batch_data)
+			self.decoder(batch_data)
 
-				batch_data.predict = torch.sigmoid(batch_data.predict)
-				if self.decoder.use_attention :
-					attn = batch_data.attn.cpu().data.numpy()
-					attns.append(attn)
+			batch_data.predict = torch.sigmoid(batch_data.predict)
+			if self.decoder.use_attention :
+				attn = batch_data.attn.cpu().data.numpy()
+				attns.append(attn)
 
-				predict = batch_data.predict.cpu().data.numpy()
-				outputs.append(predict)
-			except:
-				pass
+			predict = batch_data.predict.cpu().data.numpy()
+			outputs.append(predict)
 
 		outputs = [x for y in outputs for x in y]
 		if self.decoder.use_attention :
@@ -249,16 +241,11 @@ class Model() :
 
 
 				"""get XxE[X]"""
-				try:
 
-					# g is a tensor of shape 32,39,300
-					g = batch_data.embedding.grad
-					# em is a tensor of shape 32,39,300
-					em = batch_data.embedding
-					g1 = (g * em).sum(-1)
+				g = batch_data.embedding.grad
+				em = batch_data.embedding
+				g1 = (g * em).sum(-1)
 
-				except:
-					pass
 
 				grads_xxex.append(g1.cpu().data.numpy())
 
@@ -296,9 +283,11 @@ class Model() :
 		#Unlike gradients_mem, IG should be invoked after model has been trained, so that self.encoder.embeddings.weight.data
 
 		embd_dict = np.array(self.encoder.embedding.weight.data)
+		print("getting testdata embed col")
 		test_data_embd_col = get_complete_testdata_embed_col(data, embd_dict, testdata_count=no_of_instances, steps=steps)
 		int_grads = []
 
+		print("calculating IG")
 		for i in tqdm(range(len(test_data_embd_col))):
 
 			sample = i
@@ -307,9 +296,6 @@ class Model() :
 			int_grads.append(integrated_gradients(grads, one_sample, grads_wrt='XxE[X]'))
 
 		return int_grads
-
-
-	# INT GRAD HELPERS
 
 	def get_grads_from_custom_td(self, test_data):
 		grads = self.gradient_mem(test_data)
@@ -322,9 +308,6 @@ class Model() :
 	def evaluate_outputs_from_custom_td(self, testdata):
 		predictions, _ = self.evaluate(testdata)
 		return predictions
-
-
-
 
 
 	def remove_and_run(self, data) :

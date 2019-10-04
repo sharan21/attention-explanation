@@ -25,7 +25,13 @@ class Trainer() :
 				print_metrics(test_metrics)
 
 			metric = test_metrics[save_on_metric]
-			if metric > best_metric and i > 0 :
+
+			if i==0 :
+				best_metric = metric
+				save_model = True
+				print("Model Saved on ", save_on_metric, metric)
+
+			elif metric > best_metric and i > 0 :
 				best_metric = metric
 				save_model = True
 				print("Model Saved on ", save_on_metric, metric)

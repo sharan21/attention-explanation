@@ -24,7 +24,6 @@ def permute_list(l, p) :
 def calc_max_attn(X, attn) : 
 	return np.array([max(attn[i][1:len(X[i])-1]) for i in range(len(attn))])
 
-#########################################################################################################
 
 def plot_entropy(X, attn) :
 	unif_H, attn_H = [], []
@@ -121,14 +120,22 @@ def get_all_models(dirname) :
 		return None
 	return [os.path.join(dirname, d) for d in dirs]
 
+def all_subdirs_of(b='.'):
+	result = []
+	for d in os.listdir(b):
+		bd = os.path.join(b, d)
+		if os.path.isdir(bd): result.append(bd)
+	return result
+
 def get_latest_model(dirname) :
 
 	# fails to take month into account
-	dirs = [d for d in os.listdir(dirname) if d != '.DS_Store' and ('evaluate.json' in os.listdir(os.path.join(dirname, d)))]
+	dirs = all_subdirs_of(dirname)
 	if len(dirs) == 0 :
 		return None
-	max_dir = max(dirs, key=lambda s : time.strptime(s.replace('_', ' ')))
-	return os.path.join(dirname, max_dir)
+
+	max_dir = max(dirs, key=os.path.getmtime)
+	return os.path.join(max_dir)
 
 def push_graphs_to_main_directory(model_dirname, name) :
 	dirname = model_dirname
