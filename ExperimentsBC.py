@@ -8,14 +8,16 @@ from itertools import zip_longest
 from lime.lime_text import LimeTextExplainer
 
 
-def generate_graphs_on_latest_model_old(dataset, config='lstm') :
+def generate_graphs_on_latest_model_old(dataset, config='lstm'):
 	config = configurations[config](dataset)
 	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
 	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
 	_ = evaluator.evaluate(dataset.test_data, save_results=False)
 	generate_graphs(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data)
 
+
 def generate_graphs_on_latest_model(dataset, config='lstm'):
+	dataset_name = dataset.name
 
 	config = configurations[config](dataset)
 	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
@@ -32,7 +34,10 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 	"""get pre trained vectorizer"""
 	print("getting vectorizer")
-	file = open('./pickles/sst_vectorizer.pickle', 'rb')
+	try:
+		file = open('./pickles/{}_vectorizer.pickle'.format(dataset_name), 'rb')
+	except:
+		print("need to store vectorizer first from ./preprocess/preprocess_data*.py")
 	vectorizer = pickle.load(file)
 
 	"""get idx2word and reverse dict"""
@@ -56,68 +61,91 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 
 	################################# LIME STARTS HERE #################################
 
-	sample = 0
-	categories = ['Bad', 'Good']
-	instance_of_interest = testdata_eng[sample]
+	# def lime_raw_string_preprocessor(word2idx,
+	#                                  testdata_raw):  # customized for lime input collection which perturbs inputs by randomly masking words
+	#
+	# 	default = "<SOS> <UNK> <EOS>"  # all blank sentences must be corrected to this format
+	#
+	# 	unknowns = ['<SOS>', '<EOS>', '<PAD>', '<UNK>']
+	# 	indexs = [2, 3, 0, 1]
+	# 	mapped = dict(zip(unknowns, indexs))
+	#
+	# 	testdata_tokens = []
+	#
+	# 	for j in range(len(testdata_raw)):
+	# 		t = testdata_raw[j]
+	#
+	# 		""" Check if t has any words"""
+	# 		if (len(t.split()) == t.split().count('')):
+	# 			t = default
+	#
+	# 		words = t.split()
+	#
+	# 		if (words[0] != '<SOS>'):
+	# 			words.insert(0, '<SOS>')
+	# 		if (words[-1] != '<EOS>'):
+	# 			words.insert(len(words), '<EOS>')
+	#
+	# 		if (len(words) == 2):
+	# 			words.insert(1, '<UNK>')
+	#
+	# 		token_list = []
+	#
+	# 		for i in range(len(words)):
+	#
+	# 			if words[i] in unknowns:  # because lime considers <,SOS and > as 3 separate words we remove them
+	# 				token_list.append(mapped[words[i]])
+	# 				continue
+	#
+	# 			token_list.append(word2idx[words[i]])
+	#
+	# 		testdata_tokens.append(token_list)
+	# 	return testdata_tokens
+	#
+	# def model_pipeline(raw_string_ip, word2idx=word2idx):  # always load idx2word dict as default
+	# 	# To be passed to lime explanation evaluator
+	# 	# input: list of d input strings
+	# 	# output: (d,k) ndarray where k is the number of classes
+	#
+	# 	raw_string_ip_tokens = lime_raw_string_preprocessor(word2idx, raw_string_ip)
+	# 	raw_string_ip_preds = evaluator.evaluate_outputs_from_custom_td(raw_string_ip_tokens)
+	# 	inv = np.ones_like(raw_string_ip_preds) - raw_string_ip_preds
+	#
+	# 	return np.concatenate((inv, raw_string_ip_preds), axis=-1)
+	#
+	# def custom_regex(string):  # limes regex doesnt recognise < and > to be a part of a word
+	#
+	# 	words = string.split(" ")
+	#
+	# 	return words
+	#
+	# """Test lime word attri for one instance"""
+	#
+	# sample = 1
+	# categories = ['Bad', 'Good']
+	# instance_of_interest = testdata_eng[sample]
+	#
+	# explainer = LimeTextExplainer(class_names=categories, verbose=True, split_expression=custom_regex)
+	# exp = explainer.explain_instance(instance_of_interest, model_pipeline, num_features=6)
+	# exp_for_instance = exp.as_list()
+	#
+	# print(exp_for_instance)
+	#
+	# exit(0)
 
-
-	def model_pipeline(raw_string_ip, word2idx=word2idx): #always load idx2word dict as default
-		# To be passed to lime explanation evaluator
-		# input: list of d input strings
-		# output: (d,k) ndarray where k is the number of classes
-
-
-		raw_string_ip_tokens = get_tokens_from_raw(word2idx, raw_string_ip)
-		raw_string_ip_preds = evaluator.evaluate_outputs_from_custom_td(raw_string_ip_tokens)
-		inv = np.ones_like(raw_string_ip_preds) - raw_string_ip_preds
-
-
-
-		return np.concatenate((inv, raw_string_ip_preds), axis=-1)
-
-	def custom_regex(string): #limes regex doesnt recognise < and > to be a part of a word
-
-		words = string.split(" ")
-		return words
-
-
-	explainer = LimeTextExplainer(class_names=categories, verbose=True, split_expression=custom_regex)
-	exp = explainer.explain_instance(instance_of_interest, model_pipeline, num_features=6)
-	attri = exp.as_list()
-
-
-	global_pred = dataset.test_data.yt_hat[sample]
-
-
-	print(exp)
-
-
-
-
-
-	exit(0)
-
-	################################# LIME ENDS HERE #################################
-
-
-
-
-
+	################################ LIME ENDS HERE #################################
 
 	################################# IG STARTS HERE #################################
 
 	"""Get Testdata_embd_collection of shape [testdata_count, Steps, Wordcount, Hiddensize] """
 	print("converting dataset.testdata.X.embeddings to dataset.testdata.X.embedding.collection")
-	test_data_embd_col = get_complete_testdata_embed_col(dataset, embd_dict, testdata_count=454, steps=50)
-
+	test_data_embd_col = get_complete_testdata_embed_col(dataset, embd_dict, testdata_count=300, steps=50)
 
 	"""Get preds for testdata from raw input"""
 	print("getting preds and attn for dataset.test_data")
 	preds_from_raw_input, attn_from_raw_input = evaluator.evaluate(dataset.test_data, save_results=False)
 
-
-
-	"""get int_grads for custom embeds"""
+	"""get int_grads"""
 
 	print("Getting {} instances of int_grads for test_data".format(len(test_data_embd_col)))
 
@@ -135,7 +163,6 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	# 	pickle.dump(obj=int_grads, file=file)
 	# print("saved")
 
-
 	"""Loading IG from pickle"""
 	#
 	# print("getting IG from pickle")
@@ -145,15 +172,14 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	################################# IG ENDS HERE #################################
 
 	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
-					int_grads=int_grads, norm_grads=normal_grads, for_only=len(test_data_embd_col))
-
+	                int_grads=int_grads, norm_grads=normal_grads, for_only=len(test_data_embd_col))
 
 
 def train_dataset(dataset, config='lstm', n_iter=1):
 	try:
 		# building the config and initializing the BC model with it through trainer wrapper class
 		config = configurations[config](dataset)
-		trainer = Trainer(dataset, config=config, _type=dataset.trainer_type) # will create new model
+		trainer = Trainer(dataset, config=config, _type=dataset.trainer_type)  # will create new model
 
 		trainer.train(dataset.train_data, dataset.dev_data, n_iters=n_iter, save_on_metric=dataset.save_on_metric)
 		evaluator = Evaluator(dataset, trainer.model.dirname, _type=dataset.trainer_type)
@@ -216,52 +242,6 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
 
 
 ################################################################################################ MODIFICATIONS START HERE
-
-
-def get_tokens_from_raw(word2idx, testdata_raw): # customized for lime input collection which perturbs inputs by randomly masking words
-
-	default = "<SOS> <UNK> <EOS>" # all blank sentences must be corrected to this format
-
-	unknowns = ['<SOS>', '<EOS>', '<PAD>', '<UNK>']
-	indexs = [2,3,0,1]
-	mapped = dict(zip(unknowns, indexs))
-
-	testdata_tokens = []
-
-	for j in range(len(testdata_raw)):
-		t = testdata_raw[j]
-
-
-		""" Check if t has any words"""
-		if(len(t.split()) == t.split().count('')):
-			t = default
-
-
-		words = t.split()
-
-		if (words[0] != '<SOS>'):
-			words.insert(0, '<SOS>')
-		if(words[-1] != '<EOS>'):
-			words.insert(len(words), '<EOS>')
-
-		if(len(words) == 2):
-			words.insert(1, '<UNK>')
-
-		token_list = []
-
-		for i in range(len(words)):
-
-			if words[i] in unknowns: #because lime considers <,SOS and > as 3 seperate words we remove them
-				token_list.append(mapped[words[i]])
-				continue
-
-			token_list.append(word2idx[words[i]])
-
-
-		testdata_tokens.append(token_list)
-	return testdata_tokens
-
-
 
 
 def integrated_gradients(grads, testdata, grads_wrt='H'):
