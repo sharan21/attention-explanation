@@ -3,20 +3,22 @@ from Transparency.Trainers.PlottingBC import generate_graphs, plot_adversarial_e
 from Transparency.configurations import configurations
 from Transparency.Trainers.TrainerBC import Trainer, Evaluator
 from Transparency.model.LR import LR
-from datetime import datetime
-from itertools import zip_longest
-from lime.lime_text import LimeTextExplainer
+from helpers import *
 
 
-def generate_graphs_on_latest_model_old(dataset, config='lstm'):
+def generate_graphs_on_latest_model(dataset, config='lstm'):
 	config = configurations[config](dataset)
 	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
 	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
 	_ = evaluator.evaluate(dataset.test_data, save_results=False)
+
+	int_grads = evaluator.model.integrated_gradient_mem(data = dataset)
+
+
 	generate_graphs(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data)
 
 
-def generate_graphs_on_latest_model(dataset, config='lstm'):
+def generate_graphs_on_latest_model_new(dataset, config='lstm'):
 	dataset_name = dataset.name
 
 	config = configurations[config](dataset)

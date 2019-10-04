@@ -17,8 +17,14 @@ from model.modules.Encoder import Encoder
 from .modelUtils import BatchHolder, get_sorting_index_with_noise_from_lengths
 from .modelUtils import jsd as js_divergence
 
+from helpers import *
+
 file_name = os.path.abspath(__file__)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+
+
+
 
 class AdversaryMulti(nn.Module) :
 	def __init__(self, decoder=None) :
@@ -284,6 +290,44 @@ class Model() :
 			grads[k] = [x for y in grads[k] for x in y]
 
 		return grads
+
+	def integrated_gradient_mem(self, data, grads_wrt='XxE[X]', no_of_instances=100, steps=50):
+
+		#NOTE: Integrated gradients by default will only calculate IG for 100 instances and wrt grads['XxE[X]'] to reduce computation time
+		#Change 'grads_wrt' and 'no_of_instances' accordingly to match correlation plot of normal gradients
+		#Unlike gradients_mem, IG should be invoked after model has been trained, so that self.encoder.embeddings.weight.data
+
+		embd_dict = np.array(self.encoder.embedding.weight.data)
+		test_data_embd_col = get_complete_testdata_embed_col(data, embd_dict, testdata_count=no_of_instances, steps=steps)
+		int_grads = []
+
+		for i in tqdm(range(len(test_data_embd_col))):
+
+			sample = i
+			one_sample = test_data_embd_col[sample]
+			grads = self.get_grads_from_custom_td(one_sample)
+			int_grads.append(integrated_gradients(grads, one_sample, grads_wrt='XxE[X]'))
+
+		return int_grads
+
+
+	# INT GRAD HELPERS
+
+	def get_grads_from_custom_td(self, test_data):
+		grads = self.gradient_mem(test_data)
+		return grads
+
+	def evaluate_outputs_from_embeds(self, embds):
+		predictions, attentions = self.evaluate(embds)
+		return predictions, attentions
+
+	def evaluate_outputs_from_custom_td(self, testdata):
+		predictions, _ = self.evaluate(testdata)
+		return predictions
+
+
+
+
 
 	def remove_and_run(self, data) :
 		self.encoder.train()
