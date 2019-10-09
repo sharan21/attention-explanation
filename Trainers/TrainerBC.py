@@ -70,6 +70,7 @@ class Evaluator() :
 		test_data.attn_hat = attentions
 		return predictions, attentions
 
+
 	def get_grads_from_custom_td(self, test_data):
 		grads = self.model.gradient_mem(test_data)
 		return grads
@@ -78,7 +79,7 @@ class Evaluator() :
 		predictions, attentions = self.model.evaluate(embds)
 		return predictions, attentions
 
-	def evaluate_outputs_from_custom_td(self, testdata):
+	def evaluate_outputs_from_custom_td(self, testdata, use_tqdm=True):
 		predictions, _ = self.model.evaluate(testdata)
 		return predictions
 
@@ -110,6 +111,14 @@ class Evaluator() :
 			print("Dumping int grads!")
 			pdump(self.model, int_grads, 'integrated_gradients')
 			print("Dumping int grads!")
+
+	def lime_attribution_experiment(self, dataset, force_run=False):
+
+		if force_run or not is_pdumped(self.model, 'lime_attributions'):
+			lime_attri = self.model.lime_attribution_mem(dataset)
+			print("Dumping lime!")
+			pdump(self.model, lime_attri, 'lime_attributions')
+			print("Dumping lime!")
 
 	def logodds_attention_experiment(self, test_data, logodds, save_results=False) :
 		logodds_combined = defaultdict(float)

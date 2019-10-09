@@ -6,7 +6,7 @@ parser.add_argument("--data_dir", type=str, required=True)
 parser.add_argument("--output_dir", type=str)
 parser.add_argument('--encoder', type=str, choices=['cnn', 'lstm', 'average', 'all'], required=True)
 parser.add_argument('--attention', type=str, choices=['tanh', 'dot', 'all'], required=True)
-parser.add_argument("--load_model", type=str, choices=['true, false'], default='false')
+# parser.add_argument("--load_model", type=str, choices=['true, false'], default='false')
 
 args, extras = parser.parse_known_args()
 args.extras = extras
@@ -22,7 +22,6 @@ if args.output_dir is not None :
 encoders = ['cnn', 'lstm', 'average'] if args.encoder == 'all' else [args.encoder]
 
 if args.attention in ['tanh', 'all'] :
-
 
     # train_dataset_on_encoders(dataset, encoders)
     generate_graphs_on_encoders(dataset, encoders)

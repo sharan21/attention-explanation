@@ -4,7 +4,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.multioutput import MultiOutputClassifier
 from common_code.metrics import *
 import time, json
-from Transparency import *
+from Transparencyattn import *
 import os, pickle
 
 def normalise_output(y) :

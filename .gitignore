@@ -8,3 +8,4 @@ outputs
 preprocess
 __pycache__
 *.pickle
+.vscode

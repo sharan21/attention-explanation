@@ -1,24 +1,32 @@
 from common_code.common import *
-from Transparency.Trainers.PlottingBC import generate_graphs, plot_adversarial_examples, plot_logodds_examples
-from Transparency.configurations import configurations
+from Trainers.PlottingBC import generate_graphs, plot_adversarial_examples, plot_logodds_examples
+from configurations import configurations
 from Trainers.TrainerBC import Trainer, Evaluator
 from model.LR import LR
 from helpers import *
 
 
+def generate_graphs_on_encoders(dataset, encoders):
+	for e in encoders:
+		generate_graphs_on_latest_model(dataset, e)
+
+
 def generate_graphs_on_latest_model(dataset, config='lstm'):
+
 	config = configurations[config](dataset)
 	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
 	print("latest model is {}".format(latest_model))
 	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
 	_ = evaluator.evaluate(dataset.test_data, save_results=False)
 
-	int_grads = evaluator.model.integrated_gradient_mem(dataset, no_of_instances=100)
+	print("getting normal grads")
 	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
 
-	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
-	                int_grads=int_grads, norm_grads=normal_grads, for_only=len(int_grads))
+	int_grads = evaluator.model.integrated_gradient_mem(dataset, no_of_instances=10)
+	lime_attri = evaluator.model.lime_attribution_mem(dataset, no_of_instances=10)
 
+	generate_graphs(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
+	                int_grads=int_grads, norm_grads=normal_grads, lime=lime_attri, for_only=len(int_grads))
 
 
 def train_dataset(dataset, config='lstm', n_iter=1):
@@ -39,11 +47,6 @@ def train_dataset_on_encoders(dataset, encoders):
 	for e in encoders:
 		train_dataset(dataset, e)
 		run_experiments_on_latest_model(dataset, e)
-
-
-def generate_graphs_on_encoders(dataset, encoders):
-	for e in encoders:
-		generate_graphs_on_latest_model(dataset, e)
 
 
 def train_lr_on_dataset(dataset):
@@ -75,19 +78,15 @@ def run_evaluator_on_latest_model(dataset, config='lstm'):
 
 
 def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
-	try:
-		evaluator = run_evaluator_on_latest_model(dataset, config)
-		test_data = dataset.test_data
-		evaluator.gradient_experiment(test_data, force_run=force_run)
-		evaluator.permutation_experiment(test_data, force_run=force_run)
-		evaluator.adversarial_experiment(test_data, force_run=force_run)
-		evaluator.integrated_gradient_experiment(dataset, force_run=force_run)
 
+	evaluator = run_evaluator_on_latest_model(dataset, config)
+	test_data = dataset.test_data
+	evaluator.gradient_experiment(test_data, force_run=force_run)
+	evaluator.permutation_experiment(test_data, force_run=force_run)
+	evaluator.adversarial_experiment(test_data, force_run=force_run)
+	evaluator.integrated_gradient_experiment(dataset, force_run=force_run)
+	evaluator.lime_attribution_experiment(dataset, force_run=force_run)
 
-	#        evaluator.remove_and_run_experiment(test_data, force_run=force_run)
-	except Exception as e:
-		print(e)
-		return
 
 
 
@@ -169,17 +168,9 @@ def push_all_models(dataset, keys):
 	return df
 
 
-
-
-
-
-
-
-
-
-
 ######## OLD CODE #######
-def generate_graphs_on_latest_model_test(dataset, config='lstm'):
+
+def generate_graphs_on_latest_model_debug(dataset, config='lstm'):
 	dataset_name = dataset.name
 
 	config = configurations[config](dataset)
@@ -217,110 +208,119 @@ def generate_graphs_on_latest_model_test(dataset, config='lstm'):
 	# 	test_data_embd_full.append(get_embeddings_for_testdata(e, embd_dict))
 
 	""" Compute Normal Grads"""
-	print("getting NG for testdata")
+
+	# print("getting NG for testdata")
 	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
 	# normal_grads_norm = normalise_grads(normal_grads['H'])
 
-	################################# LIME STARTS HERE #################################
+	################################ LIME STARTS HERE #################################
 
-	# def lime_raw_string_preprocessor(word2idx,
-	#                                  testdata_raw):  # customized for lime input collection which perturbs inputs by randomly masking words
-	#
-	# 	default = "<SOS> <UNK> <EOS>"  # all blank sentences must be corrected to this format
-	#
-	# 	unknowns = ['<SOS>', '<EOS>', '<PAD>', '<UNK>']
-	# 	indexs = [2, 3, 0, 1]
-	# 	mapped = dict(zip(unknowns, indexs))
-	#
-	# 	testdata_tokens = []
-	#
-	# 	for j in range(len(testdata_raw)):
-	# 		t = testdata_raw[j]
-	#
-	# 		""" Check if t has any words"""
-	# 		if (len(t.split()) == t.split().count('')):
-	# 			t = default
-	#
-	# 		words = t.split()
-	#
-	# 		if (words[0] != '<SOS>'):
-	# 			words.insert(0, '<SOS>')
-	# 		if (words[-1] != '<EOS>'):
-	# 			words.insert(len(words), '<EOS>')
-	#
-	# 		if (len(words) == 2):
-	# 			words.insert(1, '<UNK>')
-	#
-	# 		token_list = []
-	#
-	# 		for i in range(len(words)):
-	#
-	# 			if words[i] in unknowns:  # because lime considers <,SOS and > as 3 separate words we remove them
-	# 				token_list.append(mapped[words[i]])
-	# 				continue
-	#
-	# 			token_list.append(word2idx[words[i]])
-	#
-	# 		testdata_tokens.append(token_list)
-	# 	return testdata_tokens
-	#
-	# def model_pipeline(raw_string_ip, word2idx=word2idx):  # always load idx2word dict as default
-	# 	# To be passed to lime explanation evaluator
-	# 	# input: list of d input strings
-	# 	# output: (d,k) ndarray where k is the number of classes
-	#
-	# 	raw_string_ip_tokens = lime_raw_string_preprocessor(word2idx, raw_string_ip)
-	# 	raw_string_ip_preds = evaluator.evaluate_outputs_from_custom_td(raw_string_ip_tokens)
-	# 	inv = np.ones_like(raw_string_ip_preds) - raw_string_ip_preds
-	#
-	# 	return np.concatenate((inv, raw_string_ip_preds), axis=-1)
-	#
-	# def custom_regex(string):  # limes regex doesnt recognise < and > to be a part of a word
-	#
-	# 	words = string.split(" ")
-	#
-	# 	return words
-	#
-	# """Test lime word attri for one instance"""
-	#
-	# sample = 1
-	# categories = ['Bad', 'Good']
-	# instance_of_interest = testdata_eng[sample]
-	#
-	# explainer = LimeTextExplainer(class_names=categories, verbose=True, split_expression=custom_regex)
-	# exp = explainer.explain_instance(instance_of_interest, model_pipeline, num_features=6)
-	# exp_for_instance = exp.as_list()
-	#
-	# print(exp_for_instance)
-	#
-	# exit(0)
+	def custom_regex(string):  # limes regex doesnt recognise < and > to be a part of a word
 
-	################################ LIME ENDS HERE #################################
+		words = string.split(" ")
+		return words
 
-	################################# IG STARTS HERE #################################
+	def lime_raw_string_preprocessor(word2idx, testdata_raw):
+		# customized for lime input collection which perturbs inputs by randomly masking words
 
-	"""Get Testdata_embd_collection of shape [testdata_count, Steps, Wordcount, Hiddensize] """
-	print("converting dataset.testdata.X.embeddings to dataset.testdata.X.embedding.collection")
-	test_data_embd_col = get_complete_testdata_embed_col(dataset, embd_dict, testdata_count=300, steps=50)
+		default = "<SOS> <UNK> <EOS>"  # all blank sentences must be corrected to this format
+		unknowns = ['<SOS>', '<EOS>', '<PAD>', '<UNK>']
+		indexs = [2, 3, 0, 1]
+		mapped = dict(zip(unknowns, indexs))
 
-	"""Get preds for testdata from raw input"""
-	print("getting preds and attn for dataset.test_data")
-	preds_from_raw_input, attn_from_raw_input = evaluator.evaluate(dataset.test_data, save_results=False)
+		testdata_tokens = []
 
-	"""get int_grads"""
+		for j in range(len(testdata_raw)):
+			t = testdata_raw[j]
 
-	print("Getting {} instances of int_grads for test_data".format(len(test_data_embd_col)))
+			""" Check if t has any words"""
+			if (len(t.split()) == t.split().count('')):
+				t = default
 
-	int_grads = []
+			words = t.split()
 
-	for i in tqdm(range(len(test_data_embd_col))):
+			if (words[0] != '<SOS>'):
+				words.insert(0, '<SOS>')
+			if (words[-1] != '<EOS>'):
+				words.insert(len(words), '<EOS>')
+
+			if (len(words) == 2):
+				words.insert(1, '<UNK>')
+
+			token_list = []
+			for i in range(len(words)):
+
+				if words[i] in unknowns:  # because lime considers <,SOS and > as 3 separate words we remove them
+					token_list.append(mapped[words[i]])
+					continue
+
+				token_list.append(word2idx[words[i]])
+
+			testdata_tokens.append(token_list)
+		return testdata_tokens
+
+	def model_pipeline(raw_string_ip, word2idx=word2idx):  # always load idx2word dict as default
+		# To be passed to lime explanation evaluator
+		# input: list of d input strings
+		# output: (d,k) ndarray where k is the number of classes
+
+		raw_string_ip_tokens = lime_raw_string_preprocessor(word2idx, raw_string_ip)
+		raw_string_ip_preds = evaluator.evaluate_outputs_from_custom_td(raw_string_ip_tokens, use_tqdm=False)
+		inv = np.ones_like(raw_string_ip_preds) - raw_string_ip_preds
+
+		return np.concatenate((inv, raw_string_ip_preds), axis=-1)
+
+	def unshuffle(explanations, sample):
+		# input is list of keyword tuples
+		# output is list of float attributions`
+
+		words, weights = zip(*explanations)
+		words = list(words)
+		weights = list(weights)
+		sample = sample.split(" ")
+		attri = []
+
+		for s in sample:
+			try:
+				if (s == "<SOS>" or s == "<EOS>"):
+					attri.append(0.0)
+					continue
+				if(s in words):
+					index = words.index(s)
+					attri.append(abs(weights[index]))
+				else:
+					attri.append(0.0)
+			except Exception as e:
+				print(e)
+
+		return attri
+
+
+	""" Get lime attributions"""
+
+	testdata_instances = 10
+	print("find lime attributions for {} instances".format(testdata_instances))
+
+	lime_attri = []
+	categories = ['Bad', 'Good']
+
+	for i in tqdm(range(10)):
+
 		sample = i
-		one_sample = test_data_embd_col[sample]
-		grads = evaluator.get_grads_from_custom_td(one_sample)
-		int_grads.append(integrated_gradients(grads, one_sample, grads_wrt='XxE[X]'))
+		instance_of_interest = testdata_eng[sample]
+		explainer = LimeTextExplainer(class_names=categories, verbose=True, split_expression=custom_regex)
+		exp = explainer.explain_instance(instance_of_interest, model_pipeline, num_features=6)
+		exp_for_instance = exp.as_list()
+		attri = unshuffle(exp_for_instance, instance_of_interest)
+		lime_attri.append(attri)
 
 
-	################################# IG ENDS HERE #################################
+	"""Get int_grads"""
+	int_grads = evaluator.model.integrated_gradient_mem(dataset, no_of_instances=testdata_instances)
 
-	generate_graphs(evaluator, dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
-	                int_grads=int_grads, norm_grads=normal_grads, for_only=len(test_data_embd_col))
+	print(np.array(int_grads).shape)
+	print(np.array(lime_attri).shape)
+
+
+	generate_graphs(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
+	                int_grads=int_grads, norm_grads=normal_grads, lime=lime_attri, for_only=testdata_instances)

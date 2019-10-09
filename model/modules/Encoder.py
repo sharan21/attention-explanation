@@ -42,7 +42,7 @@ class EncoderRNN(Encoder) :
 		if(len(data.seq.shape) == 2): # look up embeds table
 			embedding = self.embedding(seq)
 
-		else: #data is embeds
+		else: #skip lookup
 			embedding = data.seq.type(torch.FloatTensor)
 			embedding.requires_grad = True
 

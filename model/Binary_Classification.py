@@ -158,7 +158,52 @@ class Model() :
 			loss_total += float(loss.data.cpu().item())
 		return loss_total*bsize/N
 
-	def evaluate(self, data) :
+	def evaluate(self, data, use_tqdm=True) :
+
+		if(len(np.array(data).shape) == 3): #fails when leading length is very big, shape will be 2 dimentional
+			is_embed = True
+		else:
+			is_embed = False
+
+
+		self.encoder.train()
+		self.decoder.train()
+
+		bsize = self.bsize
+
+		N = len(data)
+
+		outputs = []
+		attns = []
+
+		for n in range(0, N, bsize):
+
+
+			torch.cuda.empty_cache()
+
+			batch_doc = data[n:n+bsize]
+			# from batch_doc => batch_data, type gets converted from float64 => torch.int64 instead of torch.float64
+
+			batch_data = BatchHolder(batch_doc, is_embed=is_embed)
+
+			self.encoder(batch_data)
+			self.decoder(batch_data)
+
+			batch_data.predict = torch.sigmoid(batch_data.predict)
+			if self.decoder.use_attention :
+				attn = batch_data.attn.cpu().data.numpy()
+				attns.append(attn)
+
+			predict = batch_data.predict.cpu().data.numpy()
+			outputs.append(predict)
+
+		outputs = [x for y in outputs for x in y]
+		if self.decoder.use_attention :
+			attns = [x for y in attns for x in y]
+
+		return outputs, attns
+
+	def evaluate_lrp(self, data) :
 
 		if(len(np.array(data).shape) == 3): #fails when leading length is very big, shape will be 2 dimentional
 			is_embed = True
@@ -190,6 +235,8 @@ class Model() :
 			self.decoder(batch_data)
 
 			batch_data.predict = torch.sigmoid(batch_data.predict)
+
+
 			if self.decoder.use_attention :
 				attn = batch_data.attn.cpu().data.numpy()
 				attns.append(attn)
@@ -200,6 +247,8 @@ class Model() :
 		outputs = [x for y in outputs for x in y]
 		if self.decoder.use_attention :
 			attns = [x for y in attns for x in y]
+
+
 
 		return outputs, attns
 
@@ -293,16 +342,126 @@ class Model() :
 			sample = i
 			one_sample = test_data_embd_col[sample]
 			grads = self.get_grads_from_custom_td(one_sample)
-			int_grads.append(integrated_gradients(grads, one_sample, grads_wrt='XxE[X]'))
+			int_grads.append(integrated_gradients(grads, one_sample, grads_wrt=grads_wrt))
 
 		return int_grads
+
+	def lime_attribution_mem(self, dataset, no_of_instances=10):
+		#NOTE: Lime attributions by default calculate only 10 instances since to reduce computation time
+
+		path = 'preprocess/{}/vec_{}.p'.format(dataset.name, dataset.name)
+		try:
+			file = open(path, 'rb')
+		except:
+			print("preprocess/{}/vec_{}.py not found".format(dataset.name, dataset.name))
+
+		vectorizer = pickle.load(file)
+		testdata_eng = get_sentence_from_testdata(vectorizer, dataset.test_data.X)
+
+
+		def custom_regex(string):  # limes regex doesnt recognise < and > to be a part of a word
+
+			words = string.split(" ")
+			return words
+
+		def lime_raw_string_preprocessor(word2idx, testdata_raw):
+			# customized for lime input collection which perturbs inputs by randomly masking words
+
+			default = "<SOS> <UNK> <EOS>"  # all blank sentences must be corrected to this format
+			unknowns = ['<SOS>', '<EOS>', '<PAD>', '<UNK>']
+			indexs = [2, 3, 0, 1]
+			mapped = dict(zip(unknowns, indexs))
+
+			testdata_tokens = []
+
+			for j in range(len(testdata_raw)):
+				t = testdata_raw[j]
+
+				""" Check if t has any words"""
+				if (len(t.split()) == t.split().count('')):
+					t = default
+
+				words = t.split()
+
+				if (words[0] != '<SOS>'):
+					words.insert(0, '<SOS>')
+				if (words[-1] != '<EOS>'):
+					words.insert(len(words), '<EOS>')
+
+				if (len(words) == 2):
+					words.insert(1, '<UNK>')
+
+				token_list = []
+				for i in range(len(words)):
+
+					if words[i] in unknowns:  # because lime considers <,SOS and > as 3 separate words we remove them
+						token_list.append(mapped[words[i]])
+						continue
+
+					token_list.append(word2idx[words[i]])
+
+				testdata_tokens.append(token_list)
+			return testdata_tokens
+
+		def model_pipeline(raw_string_ip, word2idx=vectorizer.word2idx):
+			# To be passed to lime explanation evaluator
+			# input: list of d input strings
+			# output: (d,k) ndarray where k is the number of classes
+
+			raw_string_ip_tokens = lime_raw_string_preprocessor(word2idx, raw_string_ip)
+			raw_string_ip_preds = self.evaluate_outputs_from_custom_td(raw_string_ip_tokens)
+			inv = np.ones_like(raw_string_ip_preds) - raw_string_ip_preds
+
+			return np.concatenate((inv, raw_string_ip_preds), axis=-1)
+
+		def unshuffle(explanations, sample):
+			# input is list of keyword tuples
+			# output is list of float attributions`
+
+			words, weights = zip(*explanations)
+			words = list(words)
+			weights = list(weights)
+			sample = sample.split(" ")
+			attri = []
+
+			for s in sample:
+				try:
+					if (s == "<SOS>" or s == "<EOS>"):
+						attri.append(0.0)
+						continue
+					if (s in words):
+						index = words.index(s)
+						attri.append(abs(weights[index]))
+					else:
+						attri.append(0.0)
+				except Exception as e:
+					print(e)
+
+			return attri
+
+		print("find lime attributions for {} instances".format(no_of_instances))
+
+		lime_attri = []
+		categories = ['Bad', 'Good']
+
+		for i in tqdm(range(no_of_instances)):
+			sample = i
+			instance_of_interest = testdata_eng[sample]
+			explainer = LimeTextExplainer(class_names=categories, verbose=True, split_expression=custom_regex)
+			exp = explainer.explain_instance(instance_of_interest, model_pipeline, num_features=6)
+			exp_for_instance = exp.as_list()
+			attri = unshuffle(exp_for_instance, instance_of_interest)
+			lime_attri.append(attri)
+
+		return lime_attri
+
 
 	def get_grads_from_custom_td(self, test_data):
 		grads = self.gradient_mem(test_data)
 		return grads
 
-	def evaluate_outputs_from_embeds(self, embds):
-		predictions, attentions = self.evaluate(embds)
+	def evaluate_outputs_from_embeds(self, embds, use_tqdm=True):
+		predictions, attentions = self.evaluate(embds, use_tqdm=use_tqdm)
 		return predictions, attentions
 
 	def evaluate_outputs_from_custom_td(self, testdata):
