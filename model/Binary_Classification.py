@@ -16,6 +16,7 @@ from .modelUtils import BatchHolder, get_sorting_index_with_noise_from_lengths
 from .modelUtils import jsd as js_divergence
 
 from helpers import *
+from model.modules import lrplstm
 
 file_name = os.path.abspath(__file__)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -189,8 +190,11 @@ class Model() :
 			self.encoder(batch_data)
 			self.decoder(batch_data)
 
+
+
 			batch_data.predict = torch.sigmoid(batch_data.predict)
 			if self.decoder.use_attention :
+
 				attn = batch_data.attn.cpu().data.numpy()
 				attns.append(attn)
 
@@ -203,54 +207,39 @@ class Model() :
 
 		return outputs, attns
 
-	def evaluate_lrp(self, data) :
+	def get_lrp(self, data_in, no_of_instances = 100) :
+		# returns LRP Decomposition wrt attention layer (B, L) and wrt Decoder context input (B, H)
 
-		if(len(np.array(data).shape) == 3): #fails when leading length is very big, shape will be 2 dimentional
-			is_embed = True
-		else:
-			is_embed = False
+		data_in = data_in[0:no_of_instances]
 
+		sorting_idx = get_sorting_index_with_noise_from_lengths([len(x) for x in data_in], noise_frac=0.1)
+		data = [data_in[i] for i in sorting_idx]
+		# target = [target_in[i] for i in sorting_idx]
 
 		self.encoder.train()
 		self.decoder.train()
-
 		bsize = self.bsize
-
 		N = len(data)
+		loss_total = 0
 
-		outputs = []
-		attns = []
+		batches = list(range(0, N, bsize))
+		batches = shuffle(batches)
 
-		for n in tqdm(range(0, N, bsize)) :
+		lrp_attri = []
 
-
+		for n in tqdm(batches) :
 			torch.cuda.empty_cache()
-
 			batch_doc = data[n:n+bsize]
-			# from batch_doc => batch_data, type gets converted from float64 => torch.int64 instead of torch.float64
-
-			batch_data = BatchHolder(batch_doc, is_embed=is_embed)
+			batch_data = BatchHolder(batch_doc)
 
 			self.encoder(batch_data)
-			self.decoder(batch_data)
 
-			batch_data.predict = torch.sigmoid(batch_data.predict)
+			lrp_attn, _ = self.decoder.lrp(batch_data)
 
+			lrp_attri.extend(lrp_attn)
 
-			if self.decoder.use_attention :
-				attn = batch_data.attn.cpu().data.numpy()
-				attns.append(attn)
+		return lrp_attri
 
-			predict = batch_data.predict.cpu().data.numpy()
-			outputs.append(predict)
-
-		outputs = [x for y in outputs for x in y]
-		if self.decoder.use_attention :
-			attns = [x for y in attns for x in y]
-
-
-
-		return outputs, attns
 
 	def gradient_mem(self, data) :
 

@@ -25,6 +25,12 @@ def process_grads(grads) :
 			xxe[i] = np.abs(xxe[i]).sum(0)
 			xxe[i] = xxe[i] / xxe[i].sum()
 
+def process_lrp(lrp):
+
+	for i in range(len(lrp)):
+		lrp[i] = lrp[i] / lrp[i].sum()
+
+
 def plot_int_grads(test_data, int_grads, correlation_measure, correlation_measure_name, dirname='', for_only=1) :
 	X, yhat, attn = test_data.X[0:for_only], test_data.yt_hat[0:for_only], test_data.attn_hat[0:for_only]
 	fig, ax = init_gridspec(3, 3, 1)
@@ -310,8 +316,7 @@ def plot_attn_diff(dataset, test_data, diffs, save_name=None, dirname='') :
 ##########################################################################################################
 
 
-def generate_graphs(dataset, exp_name, model, test_data, int_grads = None, norm_grads = None, lime=None, for_only=1) :
-	# ng and ig will only be plotted for for_only testdata instances
+def generate_graphs(dataset, exp_name, model, test_data, int_grads = None, norm_grads = None, lime=None, lrp=None, for_only=1) :
 
 	logging.info("Generating graph for %s", model.dirname)
 	average_length = int(np.clip(test_data.get_stats('X')['mean_length'] * 0.1, 10, None))
@@ -343,13 +348,25 @@ def generate_graphs(dataset, exp_name, model, test_data, int_grads = None, norm_
 	# except FileNotFoundError :
 	# 	logging.warning("Integrated Gradient don't exist ...")
 
-	try:
-		logging.info("Generating Lime Attributions Graph for {} instances of testdata ...".format(for_only))
+	# try:
+	# 	logging.info("Generating Lime Attributions Graph for {} instances of testdata ...".format(for_only))
+	#
+	# 	plot_lime_attri(test_data, lime, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only)
+	# 	plot_lime_attri(test_data, lime, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only)
+	# except FileNotFoundError:
+	# 	logging.warning("Lime don't exist ...")
 
-		plot_lime_attri(test_data, lime, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only)
-		plot_lime_attri(test_data, lime, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only)
+	try:
+		logging.info("Generating LRP Attributions Graph for {} instances of testdata ...".format(for_only))
+
+		process_lrp(lrp)
+
+		plot_lime_attri(test_data, lrp, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only)
+		plot_lime_attri(test_data, lrp, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only)
 	except FileNotFoundError:
-		logging.warning("Lime don't exist ...")
+		logging.warning("LRP don't exist ...")
+
+	exit(0)
 
 
 

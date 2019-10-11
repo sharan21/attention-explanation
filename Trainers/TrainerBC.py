@@ -120,6 +120,14 @@ class Evaluator() :
 			pdump(self.model, lime_attri, 'lime_attributions')
 			print("Dumping lime!")
 
+	def lrp_attribution_experiment(self, dataset, force_run=False):
+
+		if force_run or not is_pdumped(self.model, 'lime_attributions'):
+			lrp_attri = self.model.get_lrp(dataset)
+			print("Dumping lime!")
+			pdump(self.model, lrp_attri, 'lime_attributions')
+			print("Dumping lime!")
+
 	def logodds_attention_experiment(self, test_data, logodds, save_results=False) :
 		logodds_combined = defaultdict(float)
 		for e in logodds :

@@ -13,20 +13,63 @@ def generate_graphs_on_encoders(dataset, encoders):
 
 def generate_graphs_on_latest_model(dataset, config='lstm'):
 
+
+
 	config = configurations[config](dataset)
 	latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
 	print("latest model is {}".format(latest_model))
 	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
 	_ = evaluator.evaluate(dataset.test_data, save_results=False)
 
-	print("getting normal grads")
-	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
+	"""get pre trained vectorizer"""
+	print("getting vectorizer")
+	try:
+		file = open('./pickles/{}_vectorizer.pickle'.format(dataset.name), 'rb')
+	except:
+		print("need to store vectorizer first from ./preprocess/preprocess_data*.py")
+	vectorizer = pickle.load(file)
 
-	int_grads = evaluator.model.integrated_gradient_mem(dataset, no_of_instances=10)
-	lime_attri = evaluator.model.lime_attribution_mem(dataset, no_of_instances=10)
+	print("getting normal grads")
+	# normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
+
+	# testdata_eng = get_sentence_from_testdata(vectorizer, dataset.test_data.X)
+
+
+
+
+
+
+	# for i in range(len(testdata_eng)):
+	# 	print(testdata_eng[i])
+	# 	print(len(testdata_eng[i].split(" ")))
+	# 	print(rel_attn[i])
+	# 	print(len(rel_attn[i]))
+	# 	print(" sum is: {}".format(rel_attn[i].sum(0)))
+
+
+
+	# forward_weight_names = evaluator.model.encoder.rnn._all_weights[0]
+	# reverse_weight_names = evaluator.model.encoder.rnn._all_weights[1]
+	#
+	# f_w = []
+	# for f in forward_weight_names:
+	# 	f_w.append(evaluator.model.encoder.rnn._parameters[f])
+	#
+	# r_w = []
+	# for r in reverse_weight_names:
+	# 	f_w.append(evaluator.model.encoder.rnn._parameters[f])
+	#
+	# print(evaluator.model.encoder_params)
+
+
+
+	lrp_attri = evaluator.model.get_lrp(dataset.test_data.X, no_of_instances=100)
+	# int_grads = evaluator.model.integrated_gradient_mem(dataset, no_of_instances=10)
+	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
+	# lime_attri = evaluator.model.lime_attribution_mem(dataset, no_of_instances=10)
 
 	generate_graphs(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
-	                int_grads=int_grads, norm_grads=normal_grads, lime=lime_attri, for_only=len(int_grads))
+	                int_grads=None, norm_grads=normal_grads, lime=None, lrp=lrp_attri, for_only=len(lrp_attri))
 
 
 def train_dataset(dataset, config='lstm', n_iter=1):
@@ -86,6 +129,7 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
 	evaluator.adversarial_experiment(test_data, force_run=force_run)
 	evaluator.integrated_gradient_experiment(dataset, force_run=force_run)
 	evaluator.lime_attribution_experiment(dataset, force_run=force_run)
+	evaluator.lrp_attribution_experiment(dataset, force_run=force_run)
 
 
 

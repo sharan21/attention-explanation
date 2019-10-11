@@ -61,6 +61,9 @@ class EncoderRNN(Encoder) :
 			data.embedding.retain_grad()
 			data.hidden.retain_grad()
 
+
+
+
 @Encoder.register("cnn")
 class EncoderCNN(Encoder) :
 	def __init__(self, vocab_size, embed_size, hidden_size, kernel_sizes, activation:Activation=Activation.by_name('relu'), pre_embed=None) :

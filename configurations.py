@@ -1,7 +1,7 @@
 import os
 from common_code.common import *
 
-def generate_basic_config(dataset, exp_name, only_lstm=False) :
+def generate_basic_config(dataset, exp_name) :
     config = {
         'model' :{
             'encoder' : {
@@ -24,13 +24,11 @@ def generate_basic_config(dataset, exp_name, only_lstm=False) :
         }
 
     }
-
-
     return config
 
 
 def generate_lstm_config(dataset, only_lstm=False) :
-    config = generate_basic_config(dataset, exp_name='lstm+tanh', only_lstm=only_lstm)
+    config = generate_basic_config(dataset, exp_name='lstm+tanh')
     hidden_size = dataset.hidden_size if hasattr(dataset, 'hidden_size') else 128
     config['model']['encoder'].update({'type': 'rnn', 'hidden_size' : hidden_size})
     return config
@@ -48,7 +46,7 @@ def generate_cnn_config(dataset, filters=(1, 3, 5, 7)) :
     return config
 
 def generate_vanilla_lstm_config(dataset) :
-    config = generate_lstm_config(dataset, only_lstm=True)
+    config = generate_lstm_config(dataset)
     config['model']['decoder']['use_attention'] = False
     config['training']['exp_dirname'] = os.path.join(dataset.name, 'lstm')
     return config
