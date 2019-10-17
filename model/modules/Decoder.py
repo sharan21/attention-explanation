@@ -79,6 +79,30 @@ class AttnDecoder(nn.Module, FromParams) :
 		return np.array(rel_words_percent.data), np.array(rel_context.data)
 
 
+	def deeplift(self, delta_x: dict, data = None ):
+		#delta_x is a dict of ndarrays
+
+		weights = np.array(self.linear_1.weight.data)  # (1, H)
+		bias = np.array(self.linear_1.bias.data)  # (1), not used for naive lrp
+		d_X = delta_x['d_ctx']
+		d_Y = delta_x['d_o']
+
+		t = torch.tensor(d_X)
+
+		print(self.decode(t))
+
+
+
+		exit()
+
+
+
+
+
+
+
+
+
 
 
 
@@ -87,7 +111,15 @@ class AttnDecoder(nn.Module, FromParams) :
 		output = data.hidden
 		mask = data.masks
 		attn = self.attention(data.seq, output, mask)
-		# print(attn)
+		if self.use_regulariser_attention:
+			data.reg_loss = 5 * self.regularizer_attention.regularise(data.seq, output, mask, attn)
+
+		if isTrue(data, 'detach'):
+			attn = attn.detach()
+
+		if isTrue(data, 'permute'):
+			permutation = data.generate_permutation()
+			attn = torch.gather(attn, -1, torch.LongTensor(permutation).to(device))
 		return(attn.unsqueeze(-1) * output).sum(1)
 
 	def get_attention(self, data):
@@ -116,6 +148,8 @@ class AttnDecoder(nn.Module, FromParams) :
 				attn = torch.gather(attn, -1, torch.LongTensor(permutation).to(device))
 
 			context = (attn.unsqueeze(-1) * output).sum(1) #B, H
+
+			# print(context)
 
 			data.attn = attn
 

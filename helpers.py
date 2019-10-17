@@ -169,6 +169,32 @@ def get_embeddings_for_testdata(test_data, embd_dict):
 
     return embd_sentence
 
+def get_baseline_embeddings_for_testdata(test_data, embd_dict):
+    # takes one instance of testdata of shape 1xWC and returns embds of instance of shape 1xWCx300
+    # returns list of ndarrays
+    baseline_sentence = []
+
+    for t in test_data:  # token wise
+        baseline_sentence.append(list(np.zeros_like(embd_dict[t])))
+
+    return baseline_sentence
+
+
+
+def get_baseline_embeddings_for_testdata_full(test_data_full, embd_dict, testdata_count=50):
+
+    baseline_col = []
+
+    for i in range(testdata_count):
+        sent = test_data_full[i]
+        buffer = []
+        for word in sent:
+            buffer.append(list(np.zeros_like(embd_dict[word])))
+
+        baseline_col.append(buffer)
+
+    return baseline_col
+
 
 def get_embeddings_for_testdata_full(test_data_full, embd_dict, testdata_count=50):
     # does the same thing as the above function but returns the entire collection of test_data

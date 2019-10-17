@@ -356,15 +356,15 @@ def generate_graphs(dataset, exp_name, model, test_data, int_grads = None, norm_
 	# except FileNotFoundError:
 	# 	logging.warning("Lime don't exist ...")
 
-	try:
-		logging.info("Generating LRP Attributions Graph for {} instances of testdata ...".format(for_only))
-
-		process_lrp(lrp)
-
-		plot_lime_attri(test_data, lrp, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only)
-		plot_lime_attri(test_data, lrp, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only)
-	except FileNotFoundError:
-		logging.warning("LRP don't exist ...")
+	# try:
+	# 	logging.info("Generating LRP Attributions Graph for {} instances of testdata ...".format(for_only))
+	#
+	# 	process_lrp(lrp)
+	#
+	# 	plot_lime_attri(test_data, lrp, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only)
+	# 	plot_lime_attri(test_data, lrp, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only)
+	# except FileNotFoundError:
+	# 	logging.warning("LRP don't exist ...")
 
 	exit(0)
 

@@ -134,6 +134,16 @@ def AGNews_dataset(args=None) :
     set_balanced_pos_weight(dataset)
     return dataset
 
+def Yelp(args=None) :
+    dataset = Dataset(name='Yelp', path='preprocess/YELP/vec_yelp.p', min_length=6, max_length=150, args=args)
+    set_balanced_pos_weight(dataset)
+    return dataset
+
+def Amazon(args=None) :
+    dataset = Dataset(name='Amazon', path='preprocess/AMAZON_Reviews/vec_amazon.p', min_length=6, max_length=100, args=args)
+    set_balanced_pos_weight(dataset)
+    return dataset
+
 datasets = {
     "sst" : SST_dataset,
     "imdb" : IMDB_dataset,
@@ -141,7 +151,9 @@ datasets = {
     "tweet" : ADR_dataset ,
     "Anemia" : Anemia_dataset,
     "Diabetes" : Diabetes_dataset,
-    "AgNews" : AGNews_dataset
+    "AgNews" : AGNews_dataset,
+	'amazon': Amazon,
+    'yelp': Yelp,
 }
 
 ####################################### EHR Dataloaders ######################################################################

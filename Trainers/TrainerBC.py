@@ -14,7 +14,8 @@ class Trainer() :
 		self.metrics = metrics_type[_type]
 		self.display_metrics = True
 
-	def train(self, train_data, test_data, n_iters=20, save_on_metric='roc_auc') :
+	def train(self, train_data, test_data, n_iters=2, save_on_metric='roc_auc') :
+		print("hey")
 		best_metric = 0.0
 		for i in tqdm(range(n_iters)) :
 			self.model.train(train_data.X, train_data.y)
@@ -122,11 +123,11 @@ class Evaluator() :
 
 	def lrp_attribution_experiment(self, dataset, force_run=False):
 
-		if force_run or not is_pdumped(self.model, 'lime_attributions'):
+		if force_run or not is_pdumped(self.model, 'lrp_attributions'):
 			lrp_attri = self.model.get_lrp(dataset)
-			print("Dumping lime!")
-			pdump(self.model, lrp_attri, 'lime_attributions')
-			print("Dumping lime!")
+			print("Dumping LRP!")
+			pdump(self.model, lrp_attri, 'lrp_attributions')
+			print("Dumping LRP!")
 
 	def logodds_attention_experiment(self, test_data, logodds, save_results=False) :
 		logodds_combined = defaultdict(float)

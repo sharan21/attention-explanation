@@ -166,6 +166,10 @@ class Model() :
 		else:
 			is_embed = False
 
+		print("hey")
+
+
+
 
 		self.encoder.train()
 		self.decoder.train()
@@ -190,6 +194,9 @@ class Model() :
 			self.encoder(batch_data)
 			self.decoder(batch_data)
 
+			# return self.decoder.get_context(batch_data)
+
+
 
 
 			batch_data.predict = torch.sigmoid(batch_data.predict)
@@ -207,6 +214,57 @@ class Model() :
 
 		return outputs, attns
 
+
+	def evaluate_and_buffer(self, data_in, no_of_instances):
+		# Get the outputs of each layer to feed into deeplift
+		# raw_inp -> embeddings -> hidden states -> attention weights -> context vector -> output
+
+		data = data_in[0:no_of_instances]
+
+		# fails when leading length is very big, shape will be 2 dimentional
+		if(len(np.array(data).shape) == 3):
+			is_embed = True
+		else:
+			is_embed = False
+
+		bsize = self.bsize
+
+		N = len(data)
+
+		outputs = []
+		attns = []
+		context = []
+		hidden_states = []
+
+		for n in range(0, N, bsize):
+			torch.cuda.empty_cache()
+			batch_doc = data[n:n+bsize]
+			batch_data = BatchHolder(batch_doc, is_embed=is_embed)
+			self.encoder(batch_data)
+			hs = batch_data.hidden.cpu().data.numpy()
+			hidden_states.append(hs)
+			self.decoder(batch_data)
+			batch_data.predict = torch.sigmoid(batch_data.predict)
+
+			if self.decoder.use_attention :
+				attn = batch_data.attn.cpu().data.numpy()
+				attns.append(attn)
+				cxt = self.decoder.get_context(batch_data).cpu().data.numpy()
+				context.append(cxt)
+			predict = batch_data.predict.cpu().data.numpy()
+			outputs.append(predict)
+
+		#Unpacking batches->instances
+		context = [x for y in context for x in y]
+		outputs = [x for y in outputs for x in y]
+		hidden_states = [x for y in hidden_states for x in y]
+		if self.decoder.use_attention :
+			attns = [x for y in attns for x in y]
+
+
+
+		return hidden_states, attns, context, outputs
+
 	def get_lrp(self, data_in, no_of_instances = 100) :
 		# returns LRP Decomposition wrt attention layer (B, L) and wrt Decoder context input (B, H)
 
@@ -216,8 +274,7 @@ class Model() :
 		data = [data_in[i] for i in sorting_idx]
 		# target = [target_in[i] for i in sorting_idx]
 
-		self.encoder.train()
-		self.decoder.train()
+
 		bsize = self.bsize
 		N = len(data)
 		loss_total = 0
@@ -226,6 +283,8 @@ class Model() :
 		batches = shuffle(batches)
 
 		lrp_attri = []
+
+		output_buffer = []
 
 		for n in tqdm(batches) :
 			torch.cuda.empty_cache()
@@ -239,6 +298,19 @@ class Model() :
 			lrp_attri.extend(lrp_attn)
 
 		return lrp_attri
+
+
+	def get_deeplift(self, delta_x: dict):
+
+		self.decoder.deeplift(delta_x)
+
+		exit()
+
+
+
+
+
+
 
 
 	def gradient_mem(self, data) :
@@ -318,7 +390,7 @@ class Model() :
 
 		#NOTE: Integrated gradients by default will only calculate IG for 100 instances and wrt grads['XxE[X]'] to reduce computation time
 		#Change 'grads_wrt' and 'no_of_instances' accordingly to match correlation plot of normal gradients
-		#Unlike gradients_mem, IG should be invoked after model has been trained, so that self.encoder.embeddings.weight.data
+		#Unlike gradients_mem, IG should be invoked after model has been trained, so that self.encoder.embeddings.weight.data is accurate
 
 		embd_dict = np.array(self.encoder.embedding.weight.data)
 		print("getting testdata embed col")

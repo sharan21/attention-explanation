@@ -21,58 +21,94 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
 	_ = evaluator.evaluate(dataset.test_data, save_results=False)
 
-	"""get pre trained vectorizer"""
-	print("getting vectorizer")
-	try:
-		file = open('./pickles/{}_vectorizer.pickle'.format(dataset.name), 'rb')
-	except:
-		print("need to store vectorizer first from ./preprocess/preprocess_data*.py")
-	vectorizer = pickle.load(file)
-
-	print("getting normal grads")
-	# normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
-
-	# testdata_eng = get_sentence_from_testdata(vectorizer, dataset.test_data.X)
-
-
-
-
-
-
-	# for i in range(len(testdata_eng)):
-	# 	print(testdata_eng[i])
-	# 	print(len(testdata_eng[i].split(" ")))
-	# 	print(rel_attn[i])
-	# 	print(len(rel_attn[i]))
-	# 	print(" sum is: {}".format(rel_attn[i].sum(0)))
-
-
-
-	# forward_weight_names = evaluator.model.encoder.rnn._all_weights[0]
-	# reverse_weight_names = evaluator.model.encoder.rnn._all_weights[1]
+	# """DEEP LIFT"""
 	#
-	# f_w = []
-	# for f in forward_weight_names:
-	# 	f_w.append(evaluator.model.encoder.rnn._parameters[f])
+	# """get pre trained vectorizer"""
+	# print("getting vectorizer")
+	# try:
+	# 	file = open('./pickles/{}_vectorizer.pickle'.format(dataset.name), 'rb')
+	# except:
+	# 	print("need to store vectorizer first from ./preprocess/preprocess_data*.py")
+	# vectorizer = pickle.load(file)
 	#
-	# r_w = []
-	# for r in reverse_weight_names:
-	# 	f_w.append(evaluator.model.encoder.rnn._parameters[f])
+	# """Get trained nn.embedding weights"""
+	# embd_dict = np.array(evaluator.model.encoder.embedding.weight.data)
 	#
-	# print(evaluator.model.encoder_params)
+	#
+	# """get testdata in english for lime"""
+	# # testdata_eng = get_sentence_from_testdata(vectorizer, dataset.test_data.X)
+	#
+	# """get complete testdata as embeddings"""
+	# test_data_embds_full = []
+	# baseline_embds_full = []
+	#
+	# for e in dataset.test_data.X:
+	# 	test_data_embds_full.append(get_embeddings_for_testdata(e, embd_dict))
+	# 	baseline_embds_full.append(get_baseline_embeddings_for_testdata(e, embd_dict))
+	#
+	#
+	#
+	# # print(np.array(instances).shape)
+	# #
+	# # print(np.array(baseline_instances).shape)
+	# #
+	# # exit()
+	# #
+	# # print(len(test_data_embd_full[0]))
+	# #
+	# # print(len(baseline_emb_full[0]))
+	# #
+	# # exit()
+	#
+	#
+	#
+	#
+	#
+	# hs_bs, attn_bs, ctx_bs, outs_bs = evaluator.model.evaluate_and_buffer(baseline_embds_full, no_of_instances=50)
+	#
+	#
+	#
+	# preds = evaluator.model.evaluate_outputs_from_embeds(baseline_embds_full[0:2])
+	#
+	# print(np.subtract(np.array(preds.data)[0], ctx_bs[0]))
+	# exit()
+	#
+	# # hs, attn, ctx, outs = evaluator.model.evaluate_and_buffer(test_data_embds_full, no_of_instances=50)
+	#
+	#
+	# # print(np.array(hs).shape)
+	# # print(np.array(attn).shape)
+	# # print(np.array(ctx).shape)
+	# # print(np.array(outs).shape)
+	#
+	# delta_x = dict()
+	#
+	# # delta_x['d_o'] = np.subtract(outs, outs_bs)
+	# # delta_x['d_ctx'] = np.subtract(ctx, ctx_bs)
+	# # delta_x['d_attn'] = np.subtract(attn, attn_bs)
+	# # delta_x['d_hs'] = np.subtract(hs, hs_bs)
+	#
+	# delta_x['d_o'] = outs_bs
+	# delta_x['d_ctx'] = ctx_bs
+	# delta_x['d_attn'] = attn_bs
+	# delta_x['d_hs'] = hs_bs
+	#
+	# evaluator.model.get_deeplift(delta_x)
+	#
+	#
+	# exit()
 
 
-
-	lrp_attri = evaluator.model.get_lrp(dataset.test_data.X, no_of_instances=100)
+	# lrp_attri = evaluator.model.get_lrp(dataset.test_data.X, no_of_instances=100)
 	# int_grads = evaluator.model.integrated_gradient_mem(dataset, no_of_instances=10)
-	normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
+	# normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
 	# lime_attri = evaluator.model.lime_attribution_mem(dataset, no_of_instances=10)
 
 	generate_graphs(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
-	                int_grads=None, norm_grads=normal_grads, lime=None, lrp=lrp_attri, for_only=len(lrp_attri))
+	                int_grads=None, norm_grads=None, lime=None, lrp=None, for_only=len(dataset.test_data.X))
 
 
-def train_dataset(dataset, config='lstm', n_iter=1):
+def train_dataset(dataset, config='lstm', n_iter=2):
 	try:
 		# building the config and initializing the BC model with it through trainer wrapper class
 		config = configurations[config](dataset)
@@ -82,13 +118,16 @@ def train_dataset(dataset, config='lstm', n_iter=1):
 		evaluator = Evaluator(dataset, trainer.model.dirname, _type=dataset.trainer_type)
 		_ = evaluator.evaluate(dataset.test_data, save_results=True)
 		return trainer, evaluator
-	except:
+	except Exception as e:
+
+		print(e)
+		exit()
 		return
 
 
 def train_dataset_on_encoders(dataset, encoders):
 	for e in encoders:
-		train_dataset(dataset, e)
+		train_dataset(dataset, e, n_iter=1)
 		run_experiments_on_latest_model(dataset, e)
 
 
@@ -368,3 +407,26 @@ def generate_graphs_on_latest_model_debug(dataset, config='lstm'):
 
 	generate_graphs(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
 	                int_grads=int_grads, norm_grads=normal_grads, lime=lime_attri, for_only=testdata_instances)
+
+
+
+
+# for i in range(len(testdata_eng)):
+# 	print(testdata_eng[i])
+# 	print(len(testdata_eng[i].split(" ")))
+# 	print(rel_attn[i])
+# 	print(len(rel_attn[i]))
+# 	print(" sum is: {}".format(rel_attn[i].sum(0)))
+
+# forward_weight_names = evaluator.model.encoder.rnn._all_weights[0]
+# reverse_weight_names = evaluator.model.encoder.rnn._all_weights[1]
+#
+# f_w = []
+# for f in forward_weight_names:
+# 	f_w.append(evaluator.model.encoder.rnn._parameters[f])
+#
+# r_w = []
+# for r in reverse_weight_names:
+# 	f_w.append(evaluator.model.encoder.rnn._parameters[f])
+#
+# print(evaluator.model.encoder_params)
