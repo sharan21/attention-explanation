@@ -98,7 +98,17 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	#
 	# exit()
 
+	## TESTING ATTN
 
+	attn = evaluator.model.get_attention(dataset.test_data.X)
+
+	print(attn)
+
+	exit()
+
+
+
+	"""Get Attributions"""
 	# lrp_attri = evaluator.model.get_lrp(dataset.test_data.X, no_of_instances=100)
 	# int_grads = evaluator.model.integrated_gradient_mem(dataset, no_of_instances=10)
 	# normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)

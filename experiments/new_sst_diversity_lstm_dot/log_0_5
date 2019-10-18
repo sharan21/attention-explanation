@@ -1,0 +1,45 @@
+old config {'model': {'encoder': {'vocab_size': 13826, 'embed_size': 300, 'type': 'customrnn', 'hidden_size': 128}, 'decoder': {'attention': {'type': 'dot'}, 'output_size': 1}, 'generator': {'hidden_size': 64, 'sparsity_lambda': 0.5}}, 'training': {'bsize': 32, 'weight_decay': 1e-05, 'pos_weight': [0.9135802469135803], 'basepath': 'experiments/new_sst_diversity_lstm_dot', 'exp_dirname': 'sst/diversity_lstm+dot__diversity_weight_0_5', 'diversity_weight': 0, 'entropy_weight': 5}}
+new config {'model': {'encoder': {'vocab_size': 13826, 'embed_size': 300, 'type': 'customrnn', 'hidden_size': 128}, 'decoder': {'attention': {'type': 'dot'}, 'output_size': 1}, 'generator': {'hidden_size': 64, 'sparsity_lambda': 0.5}}, 'training': {'bsize': 32, 'weight_decay': 1e-05, 'pos_weight': [0.9135802469135803], 'basepath': 'experiments/new_sst_diversity_lstm_dot', 'exp_dirname': 'sst/diversity_lstm+dot__diversity_weight_0_5', 'diversity_weight': 0, 'entropy_weight': 5}}
+encoder params {'vocab_size': 13826, 'embed_size': 300, 'type': 'customrnn', 'hidden_size': 128, 'pre_embed': None}
+INFO - 2019-10-18 02:14:50,780 - instantiating class <class 'Transparency.model.modules.Encoder.Encoder'> from params {'vocab_size': 13826, 'embed_size': 300, 'type': 'customrnn', 'hidden_size': 128, 'pre_embed': None} and extras set()
+INFO - 2019-10-18 02:14:50,780 - type = customrnn
+INFO - 2019-10-18 02:14:50,780 - instantiating class <class 'Transparency.model.modules.Encoder.EncoderorthoRNN'> from params {'vocab_size': 13826, 'embed_size': 300, 'hidden_size': 128, 'pre_embed': None} and extras set()
+INFO - 2019-10-18 02:14:50,790 - Better speed can be achieved with apex installed from https://www.github.com/nvidia/apex .
+INFO - 2019-10-18 02:14:50,957 - vocab_size = 13826
+INFO - 2019-10-18 02:14:50,957 - embed_size = 300
+INFO - 2019-10-18 02:14:50,957 - hidden_size = 128
+INFO - 2019-10-18 02:14:50,957 - pre_embed = None
+INFO - 2019-10-18 02:14:53,491 - instantiating class <class 'Transparency.model.modules.Decoder.AttnDecoder'> from params {'attention': {'type': 'dot'}, 'output_size': 1, 'hidden_size': 256} and extras set()
+INFO - 2019-10-18 02:14:53,491 - hidden_size = 256
+INFO - 2019-10-18 02:14:53,492 - output_size = 1
+INFO - 2019-10-18 02:14:53,492 - use_attention = True
+INFO - 2019-10-18 02:14:53,492 - regularizer_attention = None
+INFO - 2019-10-18 02:14:53,493 - instantiating class <class 'Transparency.model.modules.Attention.Attention'> from params <allennlp.common.params.Params object at 0x7ff5ca764358> and extras set()
+INFO - 2019-10-18 02:14:53,494 - attention.type = dot
+INFO - 2019-10-18 02:14:53,494 - type = dot
+INFO - 2019-10-18 02:14:53,494 - instantiating class <class 'Transparency.model.modules.Attention.DotAttention'> from params <allennlp.common.params.Params object at 0x7ff5ca764358> and extras set()
+INFO - 2019-10-18 02:14:53,494 - attention.hidden_size = 256
+INFO - 2019-10-18 02:14:53,494 - hidden_size = 256
+configuration {'model': {'encoder': {}, 'decoder': {}, 'generator': {'hidden_size': 64, 'sparsity_lambda': 0.5}}, 'training': {'bsize': 32, 'weight_decay': 1e-05, 'pos_weight': [0.9135802469135803], 'basepath': 'experiments/new_sst_diversity_lstm_dot', 'exp_dirname': 'sst/diversity_lstm+dot__diversity_weight_0_5', 'diversity_weight': 0, 'entropy_weight': 5}} {'model': {'encoder': {'vocab_size': 13826, 'embed_size': 300, 'type': 'customrnn', 'hidden_size': 128}, 'decoder': {'attention': {'type': 'dot'}, 'output_size': 1}, 'generator': {'hidden_size': 64, 'sparsity_lambda': 0.5}}, 'training': {'bsize': 32, 'weight_decay': 1e-05, 'pos_weight': [0.9135802469135803], 'basepath': 'experiments/new_sst_diversity_lstm_dot', 'exp_dirname': 'sst/diversity_lstm+dot__diversity_weight_0_5', 'diversity_weight': 0, 'entropy_weight': 5}}
+config  {'model': {'encoder': {}, 'decoder': {}, 'generator': {'hidden_size': 64, 'sparsity_lambda': 0.5}}, 'training': {'bsize': 32, 'weight_decay': 1e-05, 'pos_weight': [0.9135802469135803], 'basepath': 'experiments/new_sst_diversity_lstm_dot', 'exp_dirname': 'sst/diversity_lstm+dot__diversity_weight_0_5', 'diversity_weight': 0, 'entropy_weight': 5}}
+{'accuracy': 0.8150724637681159, 'roc_auc': 0.8857167437821445, 'pr_auc': 0.8874017618153867, 'conicity_mean': '0.8023912', 'conicity_std': '0.08084341', 'entropy_mean': '0.003649047', 'entropy_std': '0.0012414965'}
+                 0        1  micro avg  macro avg  weighted avg
+f1-score     0.809    0.821      0.815      0.815         0.815
+precision    0.837    0.796      0.815      0.816         0.816
+recall       0.783    0.847      0.815      0.815         0.815
+support    863.000  862.000   1725.000   1725.000      1725.000
+/home/preksha/anaconda3/envs/attention/lib/python3.6/site-packages/torch/nn/modules/rnn.py:51: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.3 and num_layers=1
+  "num_layers={}".format(dropout, num_layers))
+/scratch2/preksha/Transparency/model/modules/bnlstm.py:67: UserWarning: nn.init.xavier_uniform is now deprecated in favor of nn.init.xavier_uniform_.
+  hx = (Variable(nn.init.xavier_uniform(torch.empty(self.num_layers, batch_size, self.hidden_size,device=device))),
+/scratch2/preksha/Transparency/model/modules/bnlstm.py:68: UserWarning: nn.init.xavier_uniform is now deprecated in favor of nn.init.xavier_uniform_.
+  Variable(nn.init.xavier_uniform(torch.empty(self.num_layers, batch_size, self.hidden_size,device=device))))
+Pos_attn
+[('NOUN', [8889, 4.4669156, 0.0005025217243168403]), ('VERB', [5065, 2.4929547, 0.0004921924444200492]), ('ADJ', [3928, 1.8369352, 0.00046765151795933056]), ('DET', [3784, 1.6344709, 0.00043194263732458524]), ('ADP', [3632, 1.4690777, 0.0004044817473394755]), ('ADV', [2104, 0.93373275, 0.0004437893289123651]), ('PRON', [1637, 0.68841994, 0.0004205375309025433]), ('CONJ', [1322, 0.59030294, 0.00044652265066819183]), ('PRT', [796, 0.34655404, 0.0004353693981266501]), ('NUM', [248, 0.14014208, 0.0005650890450323782]), ('X', [17, 0.010114285, 0.0005949579507989041]), ('.', [2, 0.0009110245, 0.000455512257758528])]
+word_attn_positive
+[('<UNK>', [851, 0.6044082088992582, 0.0007102329129250977]), ('the', [733, 0.2951904446199478, 0.0004027154769712794]), ('a', [601, 0.2438779741678445, 0.00040578697864865977]), ('and', [585, 0.2222527421617997, 0.00037991921737059775]), ('of', [495, 0.1817503359343391, 0.00036717239582694764]), ('is', [279, 0.13425240101423697, 0.0004811914014847203]), ('to', [313, 0.13088802008132916, 0.0004181725881192625]), ('s', [268, 0.10603222489589825, 0.00039564263020857557]), ('it', [258, 0.09860210414626636, 0.00038217869824134246]), ('in', [219, 0.08176232387268101, 0.0003733439446241142]), ('that', [203, 0.07558635920213419, 0.00037234659705484823]), ('but', [120, 0.0639344491501106, 0.0005327870762509217]), ('with', [144, 0.05819158243320999, 0.000404108211341736]), ('film', [132, 0.05527865605108673, 0.0004187776973567176]), ('this', [111, 0.054115064442157745, 0.0004875231030825022]), ('an', [125, 0.04878221797480364, 0.0003902577437984291]), ('as', [132, 0.04860813793493435, 0.0003682434692040481]), ('its', [113, 0.04319668386960984, 0.00038227153866911365]), ('you', [83, 0.04188653378514573, 0.0005046570335559726]), ('for', [102, 0.03860236623950186, 0.00037845457097550843])]
+word_attn_negative
+[('<UNK>', [923, 0.7631586987408809, 0.0008268241589825362]), ('the', [773, 0.3505943838172243, 0.00045355030248023844]), ('a', [521, 0.24587605652050115, 0.0004719310105959715]), ('and', [395, 0.18820320332088158, 0.0004764638058756496]), ('of', [416, 0.165057451085886, 0.0003967727189564567]), ('to', [349, 0.15138738986934186, 0.00043377475607261277]), ('is', [250, 0.13299410852960136, 0.0005319764341184055]), ('s', [245, 0.11576986170257442, 0.00047253004776560986]), ('it', [256, 0.11341445150901563, 0.0004430252012070923]), ('in', [200, 0.08527381783278543, 0.0004263690891639271]), ('that', [182, 0.07845621170781669, 0.0004310780863066851]), ('but', [119, 0.07324718977179145, 0.000615522603124298]), ('this', [131, 0.07230224811064545, 0.0005519255580965301]), ('film', [99, 0.061079952618456446, 0.000616969218368247]), ('as', [155, 0.05604927982494701, 0.00036160825693514197]), ('for', [125, 0.05560946372861508, 0.00044487570982892064]), ('with', [112, 0.05345762017532252, 0.0004773001801368082]), ('be', [100, 0.05239092044212157, 0.0005239092044212157]), ('movie', [134, 0.052160883857141016, 0.0003892603272920971]), ('you', [87, 0.04420458255481208, 0.0005080986500553112])]
+xxe len shape 1725 (1, 8)
+xxe len shape 1725 (1, 8)
+xxe len shape 1725 (1, 8)

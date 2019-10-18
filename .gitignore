@@ -9,3 +9,4 @@ preprocess
 __pycache__
 *.pickle
 .vscode
+.ipynb_checkpoints

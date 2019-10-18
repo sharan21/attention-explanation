@@ -166,9 +166,6 @@ class Model() :
 		else:
 			is_embed = False
 
-		print("hey")
-
-
 
 
 		self.encoder.train()
@@ -298,6 +295,40 @@ class Model() :
 			lrp_attri.extend(lrp_attn)
 
 		return lrp_attri
+
+	def get_attention(self, data, no_of_instances=10):
+		#Used for human eval scripts
+		#returns list of ndarrays
+
+		data = data[0:no_of_instances]
+
+		# sorting_idx = get_sorting_index_with_noise_from_lengths([len(x) for x in data], noise_frac=0.1)
+		# data = [data[i] for i in sorting_idx]
+
+		bsize = self.bsize
+		N = len(data)
+
+		batches = list(range(0, N, bsize))
+		batches = shuffle(batches)
+
+		attn = []
+
+		for n in tqdm(batches):
+
+			torch.cuda.empty_cache()
+			batch_doc = data[n:n + bsize]
+			batch_data = BatchHolder(batch_doc)
+
+			self.encoder(batch_data)
+
+			batch_attn = self.decoder.get_attention(batch_data)
+
+			attn.extend(np.array(batch_attn.data))
+
+		return attn
+
+
+
 
 
 	def get_deeplift(self, delta_x: dict):

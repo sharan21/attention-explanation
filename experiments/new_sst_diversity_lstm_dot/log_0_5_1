@@ -1,0 +1,54 @@
+latest model is experiments/new_sst_diversity_lstm_dot/sst/diversity_lstm+dot__diversity_weight_0_5/Fri_Oct_18_02:10:39_2019
+old config {'model': {'encoder': {'vocab_size': 13826, 'embed_size': 300, 'type': 'customrnn', 'hidden_size': 128}, 'decoder': {'attention': {'type': 'dot'}, 'output_size': 1}, 'generator': {'hidden_size': 64, 'sparsity_lambda': 0.5}}, 'training': {'bsize': 32, 'weight_decay': 1e-05, 'pos_weight': [0.9135802469135803], 'basepath': 'experiments/new_sst_diversity_lstm_dot', 'exp_dirname': 'sst/diversity_lstm+dot__diversity_weight_0_5', 'diversity_weight': 0, 'entropy_weight': 5}}
+new config {'model': {'encoder': {'vocab_size': 13826, 'embed_size': 300, 'type': 'customrnn', 'hidden_size': 128}, 'decoder': {'attention': {'type': 'dot'}, 'output_size': 1}, 'generator': {'hidden_size': 64, 'sparsity_lambda': 0.5}}, 'training': {'bsize': 32, 'weight_decay': 1e-05, 'pos_weight': [0.9135802469135803], 'basepath': 'experiments/new_sst_diversity_lstm_dot', 'exp_dirname': 'sst/diversity_lstm+dot__diversity_weight_0_5', 'diversity_weight': 0, 'entropy_weight': 5}}
+encoder params {'vocab_size': 13826, 'embed_size': 300, 'type': 'customrnn', 'hidden_size': 128, 'pre_embed': None}
+INFO - 2019-10-18 02:24:12,510 - instantiating class <class 'Transparency.model.modules.Encoder.Encoder'> from params {'vocab_size': 13826, 'embed_size': 300, 'type': 'customrnn', 'hidden_size': 128, 'pre_embed': None} and extras set()
+INFO - 2019-10-18 02:24:12,511 - type = customrnn
+INFO - 2019-10-18 02:24:12,511 - instantiating class <class 'Transparency.model.modules.Encoder.EncoderorthoRNN'> from params {'vocab_size': 13826, 'embed_size': 300, 'hidden_size': 128, 'pre_embed': None} and extras set()
+INFO - 2019-10-18 02:24:12,520 - Better speed can be achieved with apex installed from https://www.github.com/nvidia/apex .
+INFO - 2019-10-18 02:24:12,688 - vocab_size = 13826
+INFO - 2019-10-18 02:24:12,688 - embed_size = 300
+INFO - 2019-10-18 02:24:12,688 - hidden_size = 128
+INFO - 2019-10-18 02:24:12,688 - pre_embed = None
+INFO - 2019-10-18 02:24:15,214 - instantiating class <class 'Transparency.model.modules.Decoder.AttnDecoder'> from params {'attention': {'type': 'dot'}, 'output_size': 1, 'hidden_size': 256} and extras set()
+INFO - 2019-10-18 02:24:15,214 - hidden_size = 256
+INFO - 2019-10-18 02:24:15,214 - output_size = 1
+INFO - 2019-10-18 02:24:15,214 - use_attention = True
+INFO - 2019-10-18 02:24:15,214 - regularizer_attention = None
+INFO - 2019-10-18 02:24:15,214 - instantiating class <class 'Transparency.model.modules.Attention.Attention'> from params <allennlp.common.params.Params object at 0x7fafc7d27128> and extras set()
+INFO - 2019-10-18 02:24:15,215 - attention.type = dot
+INFO - 2019-10-18 02:24:15,215 - type = dot
+INFO - 2019-10-18 02:24:15,215 - instantiating class <class 'Transparency.model.modules.Attention.DotAttention'> from params <allennlp.common.params.Params object at 0x7fafc7d27128> and extras set()
+INFO - 2019-10-18 02:24:15,215 - attention.hidden_size = 256
+INFO - 2019-10-18 02:24:15,215 - hidden_size = 256
+configuration {'model': {'encoder': {}, 'decoder': {}, 'generator': {'hidden_size': 64, 'sparsity_lambda': 0.5}}, 'training': {'bsize': 32, 'weight_decay': 1e-05, 'pos_weight': [0.9135802469135803], 'basepath': 'experiments/new_sst_diversity_lstm_dot', 'exp_dirname': 'sst/diversity_lstm+dot__diversity_weight_0_5', 'diversity_weight': 0, 'entropy_weight': 5}} {'model': {'encoder': {'vocab_size': 13826, 'embed_size': 300, 'type': 'customrnn', 'hidden_size': 128}, 'decoder': {'attention': {'type': 'dot'}, 'output_size': 1}, 'generator': {'hidden_size': 64, 'sparsity_lambda': 0.5}}, 'training': {'bsize': 32, 'weight_decay': 1e-05, 'pos_weight': [0.9135802469135803], 'basepath': 'experiments/new_sst_diversity_lstm_dot', 'exp_dirname': 'sst/diversity_lstm+dot__diversity_weight_0_5', 'diversity_weight': 0, 'entropy_weight': 5}}
+config  {'model': {'encoder': {}, 'decoder': {}, 'generator': {'hidden_size': 64, 'sparsity_lambda': 0.5}}, 'training': {'bsize': 32, 'weight_decay': 1e-05, 'pos_weight': [0.9135802469135803], 'basepath': 'experiments/new_sst_diversity_lstm_dot', 'exp_dirname': 'sst/diversity_lstm+dot__diversity_weight_0_5', 'diversity_weight': 0, 'entropy_weight': 5}}
+/home/preksha/anaconda3/envs/attention/lib/python3.6/site-packages/torch/nn/modules/rnn.py:51: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.3 and num_layers=1
+  "num_layers={}".format(dropout, num_layers))
+/scratch2/preksha/Transparency/model/modules/bnlstm.py:67: UserWarning: nn.init.xavier_uniform is now deprecated in favor of nn.init.xavier_uniform_.
+  hx = (Variable(nn.init.xavier_uniform(torch.empty(self.num_layers, batch_size, self.hidden_size,device=device))),
+/scratch2/preksha/Transparency/model/modules/bnlstm.py:68: UserWarning: nn.init.xavier_uniform is now deprecated in favor of nn.init.xavier_uniform_.
+  Variable(nn.init.xavier_uniform(torch.empty(self.num_layers, batch_size, self.hidden_size,device=device))))
+INFO - 2019-10-18 02:24:15,746 - Generating graph for experiments/new_sst_diversity_lstm_dot/sst/diversity_lstm+dot__diversity_weight_0_5/Fri_Oct_18_02:10:39_2019
+INFO - 2019-10-18 02:24:15,747 - Average Length of test set 10
+INFO - 2019-10-18 02:24:16,143 - Generating Gradients Graph ...
+/home/preksha/anaconda3/envs/attention/lib/python3.6/site-packages/matplotlib/pyplot.py:514: RuntimeWarning: More than 20 figures have been opened. Figures created through the pyplot interface (`matplotlib.pyplot.figure`) are retained until explicitly closed and may consume too much memory. (To control this warning, see the rcParam `figure.max_open_warning`).
+  max_open_warning, RuntimeWarning)
+/home/preksha/anaconda3/envs/attention/lib/python3.6/site-packages/matplotlib/axes/_axes.py:6521: MatplotlibDeprecationWarning: 
+The 'normed' kwarg was deprecated in Matplotlib 2.1 and will be removed in 3.1. Use 'density' instead.
+  alternative="'density'", removal="3.1")
+INFO - 2019-10-18 02:25:55,415 - Generating Permutations Graph ...
+INFO - 2019-10-18 02:25:58,184 - Generating importance ranking Graph ...
+{'accuracy': 0.8150724637681159, 'roc_auc': 0.8857167437821445, 'pr_auc': 0.8874017618153867, 'conicity_mean': '0.8023912', 'conicity_std': '0.08084341', 'entropy_mean': '0.003649047', 'entropy_std': '0.0012414965'}
+                 0        1  micro avg  macro avg  weighted avg
+f1-score     0.809    0.821      0.815      0.815         0.815
+precision    0.837    0.796      0.815      0.816         0.816
+recall       0.783    0.847      0.815      0.815         0.815
+support    863.000  862.000   1725.000   1725.000      1725.000
+pos tags ['NOUN', 'VERB', 'ADJ', 'DET', 'ADP', 'ADV', 'PRON', 'CONJ', 'PRT', 'NUM', 'X', '.']
+words_positive ['<UNK>', 'the', 'a', 'and', 'of', 'is', 'to', 's', 'it', 'in']
+words_negative ['<UNK>', 'the', 'a', 'and', 'of', 'to', 'is', 's', 'it', 'in']
+xxe len shape 1725 (1, 8)
+xxe len shape 1725 (1, 8)
+xxe len shape 1725 (1, 8)
+============================================================================================================================================================================================================================================================================================================
