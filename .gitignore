@@ -10,3 +10,6 @@ __pycache__
 *.pickle
 .vscode
 .ipynb_checkpoints
+experiments
+*.pkl
+.vscode
