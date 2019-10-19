@@ -21,82 +21,62 @@ def generate_graphs_on_latest_model(dataset, config='lstm'):
 	evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
 	_ = evaluator.evaluate(dataset.test_data, save_results=False)
 
-	# """DEEP LIFT"""
-	#
-	# """get pre trained vectorizer"""
-	# print("getting vectorizer")
-	# try:
-	# 	file = open('./pickles/{}_vectorizer.pickle'.format(dataset.name), 'rb')
-	# except:
-	# 	print("need to store vectorizer first from ./preprocess/preprocess_data*.py")
-	# vectorizer = pickle.load(file)
-	#
-	# """Get trained nn.embedding weights"""
-	# embd_dict = np.array(evaluator.model.encoder.embedding.weight.data)
-	#
-	#
-	# """get testdata in english for lime"""
-	# # testdata_eng = get_sentence_from_testdata(vectorizer, dataset.test_data.X)
-	#
-	# """get complete testdata as embeddings"""
-	# test_data_embds_full = []
-	# baseline_embds_full = []
-	#
-	# for e in dataset.test_data.X:
-	# 	test_data_embds_full.append(get_embeddings_for_testdata(e, embd_dict))
-	# 	baseline_embds_full.append(get_baseline_embeddings_for_testdata(e, embd_dict))
-	#
-	#
-	#
-	# # print(np.array(instances).shape)
-	# #
-	# # print(np.array(baseline_instances).shape)
-	# #
-	# # exit()
-	# #
-	# # print(len(test_data_embd_full[0]))
-	# #
-	# # print(len(baseline_emb_full[0]))
-	# #
-	# # exit()
-	#
-	#
-	#
-	#
-	#
-	# hs_bs, attn_bs, ctx_bs, outs_bs = evaluator.model.evaluate_and_buffer(baseline_embds_full, no_of_instances=50)
-	#
-	#
-	#
-	# preds = evaluator.model.evaluate_outputs_from_embeds(baseline_embds_full[0:2])
-	#
-	# print(np.subtract(np.array(preds.data)[0], ctx_bs[0]))
-	# exit()
-	#
-	# # hs, attn, ctx, outs = evaluator.model.evaluate_and_buffer(test_data_embds_full, no_of_instances=50)
-	#
-	#
-	# # print(np.array(hs).shape)
-	# # print(np.array(attn).shape)
-	# # print(np.array(ctx).shape)
-	# # print(np.array(outs).shape)
-	#
-	# delta_x = dict()
-	#
-	# # delta_x['d_o'] = np.subtract(outs, outs_bs)
-	# # delta_x['d_ctx'] = np.subtract(ctx, ctx_bs)
-	# # delta_x['d_attn'] = np.subtract(attn, attn_bs)
-	# # delta_x['d_hs'] = np.subtract(hs, hs_bs)
-	#
-	# delta_x['d_o'] = outs_bs
-	# delta_x['d_ctx'] = ctx_bs
-	# delta_x['d_attn'] = attn_bs
-	# delta_x['d_hs'] = hs_bs
-	#
-	# evaluator.model.get_deeplift(delta_x)
-	#
-	#
-	# exit()
+	"""DEEP LIFT"""
+
+	"""get pre trained vectorizer"""
+	print("getting vectorizer")
+	try:
+		file = open('./pickles/{}_vectorizer.pickle'.format(dataset.name), 'rb')
+	except:
+		print("need to store vectorizer first from ./preprocess/preprocess_data*.py")
+	vectorizer = pickle.load(file)
+
+	"""Get trained nn.embedding weights"""
+	embd_dict = np.array(evaluator.model.encoder.embedding.weight.data)
+
+
+	"""get testdata in english for lime"""
+	# testdata_eng = get_sentence_from_testdata(vectorizer, dataset.test_data.X)
+
+	"""get complete testdata as embeddings"""
+	test_data_embds_full = []
+	baseline_embds_full = []
+
+	for e in dataset.test_data.X:
+		test_data_embds_full.append(get_embeddings_for_testdata(e, embd_dict))
+		baseline_embds_full.append(get_baseline_embeddings_for_testdata(e, embd_dict))
+
+
+
+
+	hs_bs, attn_bs, ctx_bs, outs_bs = evaluator.model.evaluate_and_buffer(baseline_embds_full, no_of_instances=50)
+
+	hs, attn, ctx, outs = evaluator.model.evaluate_and_buffer(test_data_embds_full, no_of_instances=50)
+
+	preds = evaluator.model.evaluate_outputs_from_embeds()
+
+
+	# print(np.array(hs).shape)
+	# print(np.array(attn).shape)
+	# print(np.array(ctx).shape)
+	# print(np.array(outs).shape)
+
+	delta_x = dict()
+
+	# delta_x['d_o'] = np.subtract(outs, outs_bs)
+	# delta_x['d_ctx'] = np.subtract(ctx, ctx_bs)
+	# delta_x['d_attn'] = np.subtract(attn, attn_bs)
+	# delta_x['d_hs'] = np.subtract(hs, hs_bs)
+
+	delta_x['d_o'] = outs_bs
+	delta_x['d_ctx'] = ctx_bs
+	delta_x['d_attn'] = attn_bs
+	delta_x['d_hs'] = hs_bs
+
+	evaluator.model.get_deeplift(delta_x)
+
+
+	exit()
 
 	## TESTING ATTN
 

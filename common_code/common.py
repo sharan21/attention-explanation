@@ -17,24 +17,24 @@ from collections import defaultdict
 np.set_printoptions(suppress=True)
 
 def permute_list(l, p) :
-    return [l[i] for i in p]
+	return [l[i] for i in p]
 
 def calc_max_attn(X, attn) : 
-    return np.array([max(attn[i][1:len(X[i])-1]) for i in range(len(attn))])
+	return np.array([max(attn[i][1:len(X[i])-1]) for i in range(len(attn))])
 
 #########################################################################################################
 
 def plot_entropy(X, attn) :
-    unif_H, attn_H = [], []
-    for i in range(len(X)) :
-        L = len(X[i])
-        h = attn[i][1:L-1]
-        a = h * np.log(np.clip(h, a_min=1e-8, a_max=None))
-        a = -a.sum()
-        unif_H.append(np.log(L-2))
-        attn_H.append(a)
+	unif_H, attn_H = [], []
+	for i in range(len(X)) :
+		L = len(X[i])
+		h = attn[i][1:L-1]
+		a = h * np.log(np.clip(h, a_min=1e-8, a_max=None))
+		a = -a.sum()
+		unif_H.append(np.log(L-2))
+		attn_H.append(a)
 
-    plt.scatter(unif_H, attn_H, s=1)
+	plt.scatter(unif_H, attn_H, s=1)
 
 def print_attn(sentence, attention, idx=None, latex=False) :
 	l = []
@@ -102,6 +102,13 @@ def pdump(model, values, filename) :
 
 def pload(model, filename) :
 	file = os.path.join(model.dirname, filename + '_pdump.pkl')
+	if not os.path.isfile(file) :
+		raise FileNotFoundError(file + " doesn't exist")
+
+	return pickle.load(open(file, 'rb'))
+
+def pload1(dirname, filename) :
+	file = os.path.join(dirname, filename + '_pdump.pkl')
 	if not os.path.isfile(file) :
 		raise FileNotFoundError(file + " doesn't exist")
 

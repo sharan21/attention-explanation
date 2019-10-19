@@ -3,6 +3,7 @@ from common_code.common import *
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+from PIL import Image
 
 import seaborn as sns
 from matplotlib import tight_layout
@@ -191,3 +192,23 @@ def plot_scatter_by_class(ax, X_vals, Y_vals, yhat) :
     else :
         sns.scatterplot(x='bin', y='val', hue='class', style='class', data=df, ax=ax, alpha=0.7, s=10, linewidth=0)
         ax.get_legend().remove()
+
+
+def plot_attention(ax, matrix, annotate, kws):
+    ax = sns.heatmap(matrix, annot=annotate, vmin=0, vmax=0.5, ax=ax, linewidths=1, fmt="",
+                     cmap=sns.light_palette("navy"), annot_kws=kws)
+    return ax
+
+def crop_img(path): #used in Diverse vs normal attention
+
+    try:
+        img = Image.open(path)
+        width, height = img.size
+        data = np.array(img)
+        data_cropped = data[int(height/10):int(height/3)]
+        cropped = Image.fromarray(data_cropped, 'RGBA')
+        cropped.save(path)
+
+    except Exception as e:
+        print('error: {}'.format(e))
+

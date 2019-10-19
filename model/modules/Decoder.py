@@ -8,6 +8,8 @@ import numpy as np
 from model.modules.Attention import Attention, masked_softmax
 from model.modelUtils import isTrue, BatchHolder, BatchMultiHolder
 
+from common_code.common import pload, pdump
+
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 class AttnDecoder(nn.Module, FromParams) :
