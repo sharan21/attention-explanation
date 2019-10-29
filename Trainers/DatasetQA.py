@@ -1,5 +1,5 @@
-from common_code.common import *
-import preprocess.vectorizer
+from Transparency.common_code.common import *
+import Transparency.preprocess.vectorizer
 
 class DataHolder() :
     def __init__(self, **kwargs) :
@@ -94,6 +94,57 @@ def get_SNLI(args=None) :
     SNLI_dataset.bsize = 128
     return SNLI_dataset
 
+def get_QNLI(args=None) :
+    QNLI_dataset = Dataset(name='qnli', path='preprocess/GLUE_datasets/QNLI/vec_qnli.p', args=args)
+    QNLI_dataset.by_class = True
+    QNLI_dataset.bsize = 128
+    QNLI_dataset.hidden_size = 128
+    return QNLI_dataset
+
+def get_new_QNLI(args=None) :
+    QNLI_dataset = Dataset(name='new_qnli', path='preprocess/GLUE_datasets/QNLI/new_vec_qnli.p', args=args)
+    QNLI_dataset.by_class = True
+    QNLI_dataset.bsize = 128
+    QNLI_dataset.hidden_size = 128
+    return QNLI_dataset
+
+def get_MNLI(args=None) :
+    MNLI_dataset = Dataset(name='mnli', path='preprocess/GLUE_datasets/MNLI/vec_mnli.p', args=args)
+    MNLI_dataset.by_class = True
+    MNLI_dataset.bsize = 128
+    MNLI_dataset.hidden_size = 128
+    return MNLI_dataset
+
+def get_QQP(args=None) :
+    QQP_dataset = Dataset(name='QQP', path='preprocess/GLUE_datasets/QQP/vec_qqp.p', args=args)
+    QQP_dataset.by_class = True
+    QQP_dataset.bsize = 128
+    return QQP_dataset
+
+def get_RTE(args=None) :
+    RTE_dataset = Dataset(name='rte', path='preprocess/GLUE_datasets/RTE/vec_rte.p', args=args)
+    RTE_dataset.bsize = 50
+    RTE_dataset.hidden_size = 32
+    return RTE_dataset
+
+def get_STS_B(args=None) :
+    STS_dataset = Dataset(name='sts', path='preprocess/GLUE_datasets/STS-B/vec_sts-b.p', args=args)
+    STS_dataset.bsize = 50
+    STS_dataset.hidden_size = 32
+    return STS_dataset
+
+def get_MRPC(args=None) :
+    MRPC_dataset = Dataset(name='mrpc', path='preprocess/GLUE_datasets/MRPC/vec_mrpc.p', args=args)
+    MRPC_dataset.bsize = 50
+    MRPC_dataset.hidden_size = 32
+    return MRPC_dataset
+
+def get_WNLI(args=None) :
+    WNLI_dataset = Dataset(name='wnli', path='preprocess/GLUE_datasets/WNLI/vec_wnli.p', args=args)
+    WNLI_dataset.bsize = 50
+    WNLI_dataset.hidden_size = 32
+    return WNLI_dataset
+
 def get_CNN(args=None) :
     CNN_dataset = Dataset(name='cnn', path='preprocess/CNN/vec_cnn.p', args=args)
     CNN_dataset.bsize = 90
@@ -125,6 +176,14 @@ def get_Babi_3(args=None) :
 
 datasets = {
     'snli' : get_SNLI, 
+    'qnli' : get_QNLI,
+    'new_qnli': get_new_QNLI, 
+    'wnli' : get_WNLI, 
+    'mnli' : get_MNLI,
+    'rte' : get_RTE,  
+    'sts_b' : get_STS_B,
+    'qqp' : get_QQP, 
+    'mrpc':get_MRPC,
     'cnn' : get_CNN, 
     'babi_1' : get_Babi_1, 
     'babi_2' : get_Babi_2, 

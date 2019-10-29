@@ -166,8 +166,6 @@ class EncoderAverage(Encoder) :
 			output = self.activation(self.projection(embedding))  # Z = tanh(WX + B), Z is [bsize, hidden_size]
 			h = output.mean(1)  # take the mean of all bsize hidden states
 
-
-
 		data.hidden = output
 		data.last_hidden = h
 

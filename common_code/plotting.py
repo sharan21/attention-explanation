@@ -205,7 +205,14 @@ def crop_img(path): #used in Diverse vs normal attention
         img = Image.open(path)
         width, height = img.size
         data = np.array(img)
-        data_cropped = data[int(height/10):int(height/3)]
+
+        # for BC
+        top = 1/8.2
+        bottom = 1/3.5
+        left = 1/8
+        right = 6/8
+
+        data_cropped = data[int(height*top):int(height*bottom), int(width*left): int(width*right)]
         cropped = Image.fromarray(data_cropped, 'RGBA')
         cropped.save(path)
 
