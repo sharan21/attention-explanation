@@ -73,29 +73,80 @@ class AttnDecoder(nn.Module, FromParams) :
 			rel_here = np.multiply(norm, rel[i].unsqueeze(0).unsqueeze(-1)) #(L, 1)
 			accu = np.add(accu, rel_here)
 
-		rel_words = np.squeeze(accu.data)
-		rel_words_percent = np.multiply(rel_words, 100)
+		rel_attn = np.squeeze(accu.data)
+		rel_attn_percent = np.multiply(rel_attn, 100)
 
-
-
-		return np.array(rel_words_percent.data), np.array(rel_context.data)
+		return np.array(rel_attn.data), np.array(rel_context.data)
 
 
 	def deeplift(self, delta_x: dict, data = None ):
 		#delta_x is a dict of ndarrays
+		#returns relevances scores for attention weights and context batch wise
 
+		d_X = delta_x['d_ctx']
+		d_Y = delta_x['d_uo']
+		d_attn = delta_x['d_attn']
+		d_Yhat = delta_x['d_o']
+
+		sigm_mul = d_Yhat/d_Y # rescale rule
+
+		# Decoder outout to context input decomposition
 		weights = np.array(self.linear_1.weight.data)  # (1, H)
 		bias = np.array(self.linear_1.bias.data)  # (1), not used for naive lrp
-		d_X = delta_x['d_ctx']
-		d_Y = delta_x['d_o']
-
-		t = torch.tensor(d_X)
-
-		print(self.decode(t))
 
 
+		wX = np.multiply(weights, d_X)
+		sum = np.expand_dims(wX.sum(-1), -1)
+		rel_context = np.divide(wX, sum)
 
-		exit()
+		# Context vector to Attention weights relevance propagation
+		attn = np.expand_dims(d_attn, axis=-1).transpose(2, 0, 1)  # (B, L, 1) => (L, 1) => input
+		hidden =  delta_x['d_hs'] # (B, L, H) => (L, H) => weight
+		rel = rel_context.transpose(1, 0)  # (B, H) => (H, B) => (H, 1) => output
+
+		# input * weight = output; for each H in weight and output, accumulate relevance for each H
+		# (L, 1) * (L, H[i]) = (H[i], 1)
+		# relevance => shape of input => (B, L, 1);
+		# sanity check: rel[0].sum(0) = 1
+
+		accu = np.zeros_like(attn)
+
+		for i in range(5):
+			aH = np.multiply(attn, hidden[:, :, i])  # (L, 1)
+
+			den = aH.sum(-1)  # (1)
+			norm = np.divide(aH, np.expand_dims(den, axis=-1))
+			rel_here = np.multiply(norm, np.expand_dims(np.expand_dims(rel[i],axis=0), axis=-1))  # (L, 1)
+			accu = np.add(accu, rel_here)
+
+		rel_attn = np.squeeze(accu.data)
+
+
+		return rel_attn, rel_context
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -150,10 +201,19 @@ class AttnDecoder(nn.Module, FromParams) :
 				attn = torch.gather(attn, -1, torch.LongTensor(permutation).to(device))
 
 			context = (attn.unsqueeze(-1) * output).sum(1) #B, H
+			# pickle.dump(context[0], open('./og.p', 'wb'))
+
+			# exit('pickle dumped on decoder forward')
 
 			# print(context)
 
 			data.attn = attn
+
+
+
+
+
+
 
 		else :
 			context = data.last_hidden
@@ -232,6 +292,8 @@ class AttnDecoderQA(nn.Module, FromParams) :
 
 			context = (attn.unsqueeze(-1) * Poutput).sum(1) #(B, H)
 			data.attn = attn
+
+
 		else :
 			context = data.P.last_hidden
 
