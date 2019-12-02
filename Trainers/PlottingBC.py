@@ -312,7 +312,7 @@ def generate_graphs(dataset, exp_name, model, test_data, int_grads = None, norm_
     # kendall_top_k_dataset_0 = partial(kendall_top_k, k=average_length, p=0)
 
 
-    if(False):
+    if(True):
         try:
             logging.info("Generating Gradients Graph for {} instances of testdata...".format(for_only))
             if (norm_grads == None):

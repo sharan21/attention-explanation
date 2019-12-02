@@ -271,11 +271,11 @@ class Model() :
             torch.cuda.empty_cache()
             batch_doc = test_data[n:n+bsize]
             batch_data = BatchHolder(batch_doc)
-
             self.encoder(batch_data)
-            lrp_attn, _ = self.decoder.lrp(batch_data)
+            rel_attn, _ = self.decoder.lrp(batch_data)
+            rel_hidden = self.decoder.attention.lrp(batch_data, rel_attn)
 
-            lrp_attri.extend(lrp_attn)
+            lrp_attri.extend(rel_hidden)
 
         return lrp_attri
 

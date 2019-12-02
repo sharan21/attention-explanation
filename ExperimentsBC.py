@@ -90,7 +90,7 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
     # evaluator.adversarial_experiment(test_data, force_run=force_run)
     # evaluator.integrated_gradient_experiment(dataset, force_run=force_run)
     # evaluator.lime_attribution_experiment(dataset, force_run=force_run)
-    # evaluator.lrp_attribution_experiment(dataset, force_run=force_run)
+    evaluator.lrp_attribution_experiment(dataset, force_run=force_run)
 
 
 def generate_adversarial_examples(dataset, config='lstm'):
