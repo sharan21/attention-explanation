@@ -13,309 +13,252 @@ from common_code.common import pload, pdump
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 class AttnDecoder(nn.Module, FromParams) :
-	def __init__(self, hidden_size:int,
-					   attention:Dict,
-					   output_size:int = 1,
-					   use_attention:bool = True,
-					   regularizer_attention:Dict = None) :
-		super().__init__()
-		self.hidden_size = hidden_size
-		self.output_size = output_size
-		self.linear_1 = nn.Linear(hidden_size, output_size)
+    def __init__(self, hidden_size:int,
+                       attention:Dict,
+                       output_size:int = 1,
+                       use_attention:bool = True,
+                       regularizer_attention:Dict = None) :
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.linear_1 = nn.Linear(hidden_size, output_size)
 
-		attention['hidden_size'] = self.hidden_size
-		self.attention = Attention.from_params(Params(attention))
+        attention['hidden_size'] = self.hidden_size
+        self.attention = Attention.from_params(Params(attention))
 
 
+        self.use_regulariser_attention = False
+        if regularizer_attention is not None :
+            regularizer_attention['hidden_size'] = self.hidden_size
+            self.regularizer_attention = Attention.from_params(Params(regularizer_attention))
+            self.use_regulariser_attention = True
 
-		self.use_regulariser_attention = False
-		if regularizer_attention is not None :
-			regularizer_attention['hidden_size'] = self.hidden_size
-			self.regularizer_attention = Attention.from_params(Params(regularizer_attention))
-			self.use_regulariser_attention = True
+        self.use_attention = use_attention
 
-		self.use_attention = use_attention
+    def decode(self, predict) :
+        predict = self.linear_1(predict)
+        return predict
 
-	def decode(self, predict) :
-		predict = self.linear_1(predict)
-		return predict
+    def lrp(self, data:BatchHolder):
+        # sanity check: rel_<input>[0].sum(0) = 1
 
-	def lrp(self, data:BatchHolder):
-		# return the relevances of input of shape (B,H) using Naive LRP
-		# sanity check: rel_<input>[0].sum(0) = 1
+        """ Output to Context vEctor relevance propagation """
+        weights = np.array(self.linear_1.weight.data) #(1, H)
+        bias = np.array(self.linear_1.bias.data) #not used for naive lrp
+        X = self.get_context(data).data #(B, H)
+        wX = np.abs(np.multiply(weights, X))
+        sum = np.abs(wX.sum(-1).unsqueeze(-1))
+        rel_context = torch.div(wX, sum) #normalizing
 
-		# Output to Context vEctor relevance propagation
-		weights = np.array(self.linear_1.weight.data) #(1, H)
-		bias = np.array(self.linear_1.bias.data) #(1), not used for naive lrp
-		X = self.get_context(data).data #(B, H)
-		wX = np.multiply(weights, X)
-		sum = wX.sum(-1).unsqueeze(-1)
-		rel_context = torch.div(wX, sum)
-		# z = np.add(np.dot(X, weights.transpose()), bias) #(B, 1)
 
-		# Context vector to Attention weights relevance propagation
-		attn = np.array(self.get_attention(data).data.unsqueeze(-1)).transpose(2,0,1) #(B, L, 1) => (L, 1) => input
-		hidden = np.array(data.hidden.data) # (B, L, H) => (L, H) => weight
-		rel = rel_context.transpose(1, 0) # (B, H) => (H, B) => (H, 1) => output
+        """ Context vector to Attention weights relevance propagation """
+        attn = np.array(self.get_attention(data).data.unsqueeze(-1)).transpose(2,0,1) # (L, 1)
+        hidden = np.array(data.hidden.data) # (L, H)
+        rel = rel_context.transpose(1, 0)  # (H, 1) => output
 
-		# input * weight = output; for each H in weight and output, accumulate relevance for each H
-		# (L, 1) * (L, H[i]) = (H[i], 1)
-		# relevance => shape of input => (B, L, 1);
-		# sanity check: rel[0].sum(0) = 1
+        accu = np.zeros_like(attn)
 
-		accu = np.zeros_like(attn)
+        for i in range(self.hidden_size):
+            aH = np.multiply(attn, hidden[:, :, i]) #(L, 1)
 
-		for i in range(5):
-			aH = np.multiply(attn, hidden[:, :, i]) #(L, 1)
+            den = aH.sum(-1)
+            norm = np.divide(aH, np.expand_dims(den, axis=-1))
+            rel_here = np.multiply(norm, rel[i].unsqueeze(0).unsqueeze(-1)) #(L, 1)
+            accu = np.add(accu, rel_here)
 
-			den = aH.sum(-1) #(1)
-			norm = np.divide(aH, np.expand_dims(den, axis=-1))
-			rel_here = np.multiply(norm, rel[i].unsqueeze(0).unsqueeze(-1)) #(L, 1)
-			accu = np.add(accu, rel_here)
+        rel_attn = np.squeeze(accu.data)
 
-		rel_attn = np.squeeze(accu.data)
-		rel_attn_percent = np.multiply(rel_attn, 100)
+        # print(rel_attn[0].sum(0))
+        # exit('hello')
+        rel_attn= np.multiply(rel_attn, 100)
 
-		return np.array(rel_attn.data), np.array(rel_context.data)
+        return np.array(rel_attn.data), np.array(rel_context.data)
 
 
-	def deeplift(self, delta_x: dict, data = None ):
-		#delta_x is a dict of ndarrays
-		#returns relevances scores for attention weights and context batch wise
 
-		d_X = delta_x['d_ctx']
-		d_Y = delta_x['d_uo']
-		d_attn = delta_x['d_attn']
-		d_Yhat = delta_x['d_o']
+    def deeplift(self, delta_x: dict, data = None ):
+        #delta_x is a dict of ndarrays with shape (B,L,E)
+        #returns relevances scores for attention weights and context batch wise
 
-		sigm_mul = d_Yhat/d_Y # rescale rule
+        d_X = delta_x['d_ctx']
+        d_Y = delta_x['d_uo']
+        d_attn = delta_x['d_attn']
+        d_Yhat = delta_x['d_o']
 
-		# Decoder outout to context input decomposition
-		weights = np.array(self.linear_1.weight.data)  # (1, H)
-		bias = np.array(self.linear_1.bias.data)  # (1), not used for naive lrp
+        weights = np.array(self.linear_1.weight.data)
 
+        # Rescale Rule for sigmoid
+        sigm_mul = d_Yhat/d_Y
 
-		wX = np.multiply(weights, d_X)
-		sum = np.expand_dims(wX.sum(-1), -1)
-		rel_context = np.divide(wX, sum)
+        # Unactivated output -> context propagation
+        wX = np.multiply(weights, d_X)
+        rel_context = wX
 
-		# Context vector to Attention weights relevance propagation
-		attn = np.expand_dims(d_attn, axis=-1).transpose(2, 0, 1)  # (B, L, 1) => (L, 1) => input
-		hidden =  delta_x['d_hs'] # (B, L, H) => (L, H) => weight
-		rel = rel_context.transpose(1, 0)  # (B, H) => (H, B) => (H, 1) => output
+        """SANITY CHECK: rel_context[0].sum(-1) == d_Y[0]"""
 
-		# input * weight = output; for each H in weight and output, accumulate relevance for each H
-		# (L, 1) * (L, H[i]) = (H[i], 1)
-		# relevance => shape of input => (B, L, 1);
-		# sanity check: rel[0].sum(0) = 1
+        # Context -> Attention weights propagation
+        attn = np.expand_dims(d_attn, axis=-1).transpose(2, 0, 1)
+        hidden = delta_x['d_hs']
+        accu = np.zeros_like(attn)
 
-		accu = np.zeros_like(attn)
+        for i in range(self.hidden_size):
+            aH = np.multiply(attn, hidden[:, :, i])
+            accu = np.add(accu, aH)
 
-		for i in range(5):
-			aH = np.multiply(attn, hidden[:, :, i])  # (L, 1)
+        rel_attn = np.squeeze(accu.data)
 
-			den = aH.sum(-1)  # (1)
-			norm = np.divide(aH, np.expand_dims(den, axis=-1))
-			rel_here = np.multiply(norm, np.expand_dims(np.expand_dims(rel[i],axis=0), axis=-1))  # (L, 1)
-			accu = np.add(accu, rel_here)
+        """SANITY CHECK: Del_context = del_(A*H)"""
 
-		rel_attn = np.squeeze(accu.data)
+        print(rel_attn[0].sum(-1))
+        print(d_X[0].sum())
 
+        return rel_attn, rel_context
 
-		return rel_attn, rel_context
 
+    def get_context(self, data: BatchHolder):
+        output = data.hidden
+        mask = data.masks
+        attn = self.attention(data.seq, output, mask)
+        if self.use_regulariser_attention:
+            data.reg_loss = 5 * self.regularizer_attention.regularise(data.seq, output, mask, attn)
 
+        if isTrue(data, 'detach'):
+            attn = attn.detach()
 
+        if isTrue(data, 'permute'):
+            permutation = data.generate_permutation()
+            attn = torch.gather(attn, -1, torch.LongTensor(permutation).to(device))
+        return(attn.unsqueeze(-1) * output).sum(1)
 
+    def get_attention(self, data):
+        output = data.hidden
+        mask = data.masks
+        attn = self.attention(data.seq, output, mask)
 
+        return attn
 
 
+    def forward(self, data:BatchHolder) :
+        if self.use_attention :
+            output = data.hidden
+            mask = data.masks
+            attn = self.attention(data.seq, output, mask)
 
+            if self.use_regulariser_attention :
+                data.reg_loss = 5 * self.regularizer_attention.regularise(data.seq, output, mask, attn)
 
+            if isTrue(data, 'detach') :
+                attn = attn.detach()
 
+            if isTrue(data, 'permute') :
+                permutation = data.generate_permutation()
+                attn = torch.gather(attn, -1, torch.LongTensor(permutation).to(device))
 
+            context = (attn.unsqueeze(-1) * output).sum(1) #B, H
 
+            data.attn = attn
 
+        else :
+            context = data.last_hidden
 
+        predict = self.decode(context)
+        data.predict = predict
 
 
+    def get_output(self, data:BatchHolder) :
+        output = data.hidden_volatile #(B, L, H)
+        attn = data.attn_volatile #(B, *, L)
 
+        if len(attn.shape) == 3 :
+            context = (attn.unsqueeze(-1) * output.unsqueeze(1)).sum(2) #(B, *, H)
+            predict = self.decode(context)
+        else :
+            context = (attn.unsqueeze(-1) * output).sum(1)
+            predict = self.decode(context)
 
+        data.predict_volatile = predict
 
+    def get_output_from_logodds(self, data:BatchHolder) :
+        attn_logodds = data.attn_logodds #(B, L)
+        attn = masked_softmax(attn_logodds, data.masks)
 
+        data.attn_volatile = attn
+        data.hidden_volatile = data.hidden
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	def get_context(self, data: BatchHolder):
-		output = data.hidden
-		mask = data.masks
-		attn = self.attention(data.seq, output, mask)
-		if self.use_regulariser_attention:
-			data.reg_loss = 5 * self.regularizer_attention.regularise(data.seq, output, mask, attn)
-
-		if isTrue(data, 'detach'):
-			attn = attn.detach()
-
-		if isTrue(data, 'permute'):
-			permutation = data.generate_permutation()
-			attn = torch.gather(attn, -1, torch.LongTensor(permutation).to(device))
-		return(attn.unsqueeze(-1) * output).sum(1)
-
-	def get_attention(self, data):
-		output = data.hidden
-		mask = data.masks
-		attn = self.attention(data.seq, output, mask)
-
-		return attn
-
-
-
-	def forward(self, data:BatchHolder) :
-		if self.use_attention :
-			output = data.hidden
-			mask = data.masks
-			attn = self.attention(data.seq, output, mask)
-
-			if self.use_regulariser_attention :
-				data.reg_loss = 5 * self.regularizer_attention.regularise(data.seq, output, mask, attn)
-
-			if isTrue(data, 'detach') :
-				attn = attn.detach()
-
-			if isTrue(data, 'permute') :
-				permutation = data.generate_permutation()
-				attn = torch.gather(attn, -1, torch.LongTensor(permutation).to(device))
-
-			context = (attn.unsqueeze(-1) * output).sum(1) #B, H
-			# pickle.dump(context[0], open('./og.p', 'wb'))
-
-			# exit('pickle dumped on decoder forward')
-
-			# print(context)
-
-			data.attn = attn
-
-
-
-
-
-
-
-		else :
-			context = data.last_hidden
-
-		predict = self.decode(context)
-		data.predict = predict
-
-
-	def get_output(self, data:BatchHolder) :
-		output = data.hidden_volatile #(B, L, H)
-		attn = data.attn_volatile #(B, *, L)
-
-		if len(attn.shape) == 3 :
-			context = (attn.unsqueeze(-1) * output.unsqueeze(1)).sum(2) #(B, *, H)
-			predict = self.decode(context)
-		else :
-			context = (attn.unsqueeze(-1) * output).sum(1)
-			predict = self.decode(context)
-
-		data.predict_volatile = predict
-
-	def get_output_from_logodds(self, data:BatchHolder) :
-		attn_logodds = data.attn_logodds #(B, L)
-		attn = masked_softmax(attn_logodds, data.masks)
-
-		data.attn_volatile = attn
-		data.hidden_volatile = data.hidden
-
-		self.get_output(data)
+        self.get_output(data)
 
 class AttnDecoderQA(nn.Module, FromParams) :
-	def __init__(self, hidden_size:int,
-					   attention:Dict,
-					   output_size:int = 1,
-					   use_attention:bool = True,
-					   regularizer_attention:Dict = None) :
-		super().__init__()
-		self.hidden_size = hidden_size
-		self.output_size = output_size
-		self.linear_1q = nn.Linear(hidden_size, hidden_size // 2)
-		self.linear_1p = nn.Linear(hidden_size, hidden_size // 2)
+    def __init__(self, hidden_size:int,
+                       attention:Dict,
+                       output_size:int = 1,
+                       use_attention:bool = True,
+                       regularizer_attention:Dict = None) :
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.linear_1q = nn.Linear(hidden_size, hidden_size // 2)
+        self.linear_1p = nn.Linear(hidden_size, hidden_size // 2)
 
-		self.linear_2 = nn.Linear(hidden_size // 2, output_size)
+        self.linear_2 = nn.Linear(hidden_size // 2, output_size)
 
-		attention['hidden_size'] = self.hidden_size
-		self.attention = Attention.from_params(Params(attention))
+        attention['hidden_size'] = self.hidden_size
+        self.attention = Attention.from_params(Params(attention))
 
-		self.use_regulariser_attention = False
-		if regularizer_attention is not None :
-			regularizer_attention['hidden_size'] = self.hidden_size
-			self.regularizer_attention = Attention.from_params(Params(regularizer_attention))
-			self.use_regulariser_attention = True
+        self.use_regulariser_attention = False
+        if regularizer_attention is not None :
+            regularizer_attention['hidden_size'] = self.hidden_size
+            self.regularizer_attention = Attention.from_params(Params(regularizer_attention))
+            self.use_regulariser_attention = True
 
-		self.use_attention = use_attention
+        self.use_attention = use_attention
 
-	def decode(self, Poutput, Qoutput, entity_mask) :
-		predict = self.linear_2(nn.Tanh()(self.linear_1p(Poutput) + self.linear_1q(Qoutput))) #(B, O)
-		predict.masked_fill_(1 - entity_mask, -float('inf'))
+    def decode(self, Poutput, Qoutput, entity_mask) :
+        predict = self.linear_2(nn.Tanh()(self.linear_1p(Poutput) + self.linear_1q(Qoutput))) #(B, O)
+        predict.masked_fill_(1 - entity_mask, -float('inf'))
 
-		return predict
+        return predict
 
-	def forward(self, data: BatchMultiHolder) :
-		if self.use_attention :
-			Poutput = data.P.hidden #(B, H, L)
-			Qoutput = data.Q.last_hidden #(B, H)
-			mask = data.P.masks
+    def forward(self, data: BatchMultiHolder) :
+        if self.use_attention :
+            Poutput = data.P.hidden #(B, H, L)
+            Qoutput = data.Q.last_hidden #(B, H)
+            mask = data.P.masks
 
-			attn = self.attention(data.P.seq, Poutput, Qoutput, mask) #(B, L)
+            attn = self.attention(data.P.seq, Poutput, Qoutput, mask) #(B, L)
 
-			if isTrue(data, 'detach') :
-				attn = attn.detach()
+            if isTrue(data, 'detach') :
+                attn = attn.detach()
 
-			if isTrue(data, 'permute') :
-				permutation = data.P.generate_permutation()
-				attn = torch.gather(attn, -1, torch.LongTensor(permutation).to(device))
+            if isTrue(data, 'permute') :
+                permutation = data.P.generate_permutation()
+                attn = torch.gather(attn, -1, torch.LongTensor(permutation).to(device))
 
-			context = (attn.unsqueeze(-1) * Poutput).sum(1) #(B, H)
-			data.attn = attn
+            context = (attn.unsqueeze(-1) * Poutput).sum(1) #(B, H)
+            data.attn = attn
 
 
-		else :
-			context = data.P.last_hidden
+        else :
+            context = data.P.last_hidden
 
-		predict = self.decode(context, Qoutput, data.entity_mask)
-		data.predict = predict
+        predict = self.decode(context, Qoutput, data.entity_mask)
+        data.predict = predict
 
-	def get_attention(self, data:BatchMultiHolder) :
-		output = data.P.hidden_volatile
-		mask = data.P.masks
-		attn = self.attention(data.P.seq, output, mask)
-		data.attn_volatile = attn
+    def get_attention(self, data:BatchMultiHolder) :
+        output = data.P.hidden_volatile
+        mask = data.P.masks
+        attn = self.attention(data.P.seq, output, mask)
+        data.attn_volatile = attn
 
-	def get_output(self, data: BatchMultiHolder) :
-		Poutput = data.P.hidden_volatile #(B, L, H)
-		Qoutput = data.Q.last_hidden_volatile #(B, H)
-		attn = data.attn_volatile #(B, K, L)
+    def get_output(self, data: BatchMultiHolder) :
+        Poutput = data.P.hidden_volatile #(B, L, H)
+        Qoutput = data.Q.last_hidden_volatile #(B, H)
+        attn = data.attn_volatile #(B, K, L)
 
-		if len(attn.shape) == 3 :
-			predict = (attn.unsqueeze(-1) * Poutput.unsqueeze(1)).sum(2) #(B, K, H)
-			predict = self.decode(predict, Qoutput.unsqueeze(1), data.entity_mask.unsqueeze(1))
-		else :
-			predict = (attn.unsqueeze(-1) * Poutput).sum(1) #(B, H)
-			predict = self.decode(predict, Qoutput, data.entity_mask)
+        if len(attn.shape) == 3 :
+            predict = (attn.unsqueeze(-1) * Poutput.unsqueeze(1)).sum(2) #(B, K, H)
+            predict = self.decode(predict, Qoutput.unsqueeze(1), data.entity_mask.unsqueeze(1))
+        else :
+            predict = (attn.unsqueeze(-1) * Poutput).sum(1) #(B, H)
+            predict = self.decode(predict, Qoutput, data.entity_mask)
 
-		data.predict_volatile = predict
+        data.predict_volatile = predict

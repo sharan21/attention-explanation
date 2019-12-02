@@ -26,66 +26,49 @@ def process_grads(grads) :
 
 def process_lrp(lrp):
 
-    for i in range(len(lrp)): #test instance wise
+    for i in range(len(lrp)):
         lrp[i] = lrp[i] / lrp[i].sum()
 
 
-def plot_int_grads(test_data, int_grads, correlation_measure, correlation_measure_name, dirname='', for_only=1) :
+def plot_attri(test_data, attri, correlation_measure, correlation_measure_name, dirname='', for_only=1, attri_name='undefined', plot=False) :
+
     X, yhat, attn = test_data.X[0:for_only], test_data.yt_hat[0:for_only], test_data.attn_hat[0:for_only]
     fig, ax = init_gridspec(3, 3, 1)
     pval_tables = {}
 
-    gradlist = int_grads
+    gradlist = attri
     spcorrs_all = []
 
-    for i in range(len(X)) :
-        L = len(X[i]) # L is number of words in sentence
-        spcorr = correlation_measure(list(attn[i][1:L-1]), list(gradlist[i][1:L-1])) #prune grads list till L-1
-        spcorrs_all.append(spcorr)
+    for i in range(len(X)):
+        L = len(X[i])
+        # if(yhat[i] > 0.5):
+        #     continue
 
-    axes = ax[0]
+        try:
+            spcorr = correlation_measure(list(attn[i][1:L-1]), list(gradlist[i][1:L-1])) #prune grads list till L-1
+            spcorrs_all.append(spcorr)
+        except Exception as e:
 
-    pval_tables['XxE[X]'] = plot_SP_histogram_by_class(axes, spcorrs_all, yhat)
+            print(e)
+            exit("attri and attn are different sizes")
 
-    annotate(axes)
+    if(plot):
+        axes = ax[0]
+        pval_tables[attri_name] = plot_SP_histogram_by_class(axes, spcorrs_all, yhat)
+        annotate(axes)
+        adjust_gridspec()
+        show_gridspec()
 
-    adjust_gridspec()
-    save_axis_in_file(fig, ax[0], dirname, 'GradientXHist_'+correlation_measure_name)
-    save_table_in_file(pval_tables['XxE[X]'], dirname, 'GradientPval_'+correlation_measure_name)
-    show_gridspec()
-
-    avg_corr = np.average(spcorrs_all)
-    print("avg corr for ig is {}".format(avg_corr))
-
-def plot_lime_attri(test_data, int_grads, correlation_measure, correlation_measure_name, dirname='', for_only=1) :
-    X, yhat, attn = test_data.X[0:for_only], test_data.yt_hat[0:for_only], test_data.attn_hat[0:for_only]
-    fig, ax = init_gridspec(3, 3, 1)
-    pval_tables = {}
-
-    gradlist = int_grads
-    spcorrs_all = []
-
-    for i in range(len(X)) :
-        L = len(X[i]) # L is number of words in sentence
-        spcorr = correlation_measure(list(attn[i][1:L-1]), list(gradlist[i][1:L-1])) #prune grads list till L-1
-        spcorrs_all.append(spcorr)
-
-    axes = ax[0]
-
-    pval_tables['XxE[X]'] = plot_SP_histogram_by_class(axes, spcorrs_all, yhat)
-
-    annotate(axes)
-
-    adjust_gridspec()
-    save_axis_in_file(fig, ax[0], dirname, 'GradientXHist_'+correlation_measure_name)
-    save_table_in_file(pval_tables['XxE[X]'], dirname, 'GradientPval_'+correlation_measure_name)
-    show_gridspec()
+    # save_axis_in_file(fig, ax[0], dirname, 'GradientXHist_'+correlation_measure_name)
+    # save_table_in_file(pval_tables['XxE[X]'], dirname, 'GradientPval_'+correlation_measure_name)
 
     avg_corr = np.average(spcorrs_all)
-    print("avg corr for lime is {}".format(avg_corr))
+    print("avg corr({}) for {} is {}".format(correlation_measure_name, attri_name, avg_corr))
 
 
-def plot_grads(test_data, gradients, correlation_measure, correlation_measure_name, dirname='', grads_wrt='H', for_only=1) :
+
+
+def plot_grads(test_data, gradients, correlation_measure, correlation_measure_name, dirname='', grads_wrt='H', for_only=1, plot=False) :
     X, yhat, attn = test_data.X[0:for_only], test_data.yt_hat[0:for_only], test_data.attn_hat[0:for_only]
     fig, ax = init_gridspec(3, 3, 1)
     pval_tables = {}
@@ -100,15 +83,17 @@ def plot_grads(test_data, gradients, correlation_measure, correlation_measure_na
         spcorrs_all.append(spcorr)
 
 
+    if(plot):
+        axes = ax[0]
+        pval_tables['XxE[X]'] = plot_SP_histogram_by_class(axes, spcorrs_all, yhat)
+        annotate(axes)
+        adjust_gridspec()
+        show_gridspec()
 
-    axes = ax[0]
-    pval_tables['XxE[X]'] = plot_SP_histogram_by_class(axes, spcorrs_all, yhat)
-    annotate(axes)
 
-    adjust_gridspec()
-    save_axis_in_file(fig, ax[0], dirname, 'GradientXHist_'+correlation_measure_name)
-    save_table_in_file(pval_tables['XxE[X]'], dirname, 'GradientPval_'+correlation_measure_name)
-    show_gridspec()
+    # save_axis_in_file(fig, ax[0], dirname, 'GradientXHist_'+correlation_measure_name)
+    # save_table_in_file(pval_tables['XxE[X]'], dirname, 'GradientPval_'+correlation_measure_name)
+
 
     avg_corr = np.average(spcorrs_all)
     print("avg corr for ng is {}".format(avg_corr))
@@ -317,6 +302,9 @@ def plot_attn_diff(dataset, test_data, diffs, save_name=None, dirname='') :
 
 def generate_graphs(dataset, exp_name, model, test_data, int_grads = None, norm_grads = None, lime=None, lrp=None, dl = None,  for_only=1) :
 
+    if(for_only == -1):
+        for_only = len(test_data.X)
+
     logging.info("Generating graph for %s", model.dirname)
     average_length = int(np.clip(test_data.get_stats('X')['mean_length'] * 0.1, 10, None))
     logging.info("Average Length of test set %d", average_length)
@@ -324,57 +312,75 @@ def generate_graphs(dataset, exp_name, model, test_data, int_grads = None, norm_
     # kendall_top_k_dataset_0 = partial(kendall_top_k, k=average_length, p=0)
 
 
-    try :
-        logging.info("Generating Gradients Graph for {} instances of testdata...".format(for_only))
-        if(norm_grads == None):
-            norm_grads = pload(model, 'gradients')
+    if(False):
+        try:
+            logging.info("Generating Gradients Graph for {} instances of testdata...".format(for_only))
+            if (norm_grads == None):
+                norm_grads = pload(model, 'gradients')
 
-        process_grads(norm_grads)
+            process_grads(norm_grads)
 
-        plot_grads(test_data, norm_grads, kendalltau, 'kendalltau', dirname=model.dirname, grads_wrt='XxE[X]', for_only=for_only)
-        plot_grads(test_data, norm_grads, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, grads_wrt='XxE[X]', for_only=for_only)
-    except FileNotFoundError :
-        logging.warning("Gradient don't exist ...")
-
-
-    try :
-        logging.info("Generating Integrated Gradients Graph for {} instances of testdata ...".format(for_only))
-
-        process_int_grads(int_grads)
-
-        plot_int_grads(test_data, int_grads, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only)
-        plot_int_grads(test_data, int_grads, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only)
-    except FileNotFoundError :
-        logging.warning("Integrated Gradient don't exist ...")
-
-    # try:
-    # 	logging.info("Generating Lime Attributions Graph for {} instances of testdata ...".format(for_only))
-    #
-    # 	plot_lime_attri(test_data, lime, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only)
-    # 	plot_lime_attri(test_data, lime, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only)
-    # except FileNotFoundError:
-    # 	logging.warning("Lime don't exist ...")
-
-    # try:
-    #     logging.info("Generating LRP Attributions Graph for {} instances of testdata ...".format(for_only))
-    #
-    #     process_lrp(dl)
-    #
-    #     plot_lime_attri(test_data, lrp, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only)
-    #     plot_lime_attri(test_data, lrp, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only)
-    # except FileNotFoundError:
-    #     logging.warning("LRP don't exist ...")
+            plot_grads(test_data, norm_grads, kendalltau, 'kendalltau', dirname=model.dirname, grads_wrt='XxE[X]',
+                       for_only=for_only)
+            plot_grads(test_data, norm_grads, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname,
+                       grads_wrt='XxE[X]', for_only=for_only)
+        except FileNotFoundError:
+            logging.warning("Gradient don't exist ...")
 
 
-    # try:
-    #     logging.info("Generating DL Attributions Graph for {} instances of testdata ...".format(for_only))
-    #
-    #     process_lrp(dl)
-    #
-    #     plot_lime_attri(test_data, dl, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only)
-    #     plot_lime_attri(test_data, dl, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only)
-    # except FileNotFoundError:
-    #     logging.warning("LRP don't exist ...")
+    if(False):
+
+        try:
+            logging.info("Generating Integrated Gradients Graph for {} instances of testdata ...".format(for_only))
+
+            if (lrp == None):
+                lrp = pload(model, 'lrp_attributions')
+
+            process_int_grads(int_grads)
+
+            plot_attri(test_data, int_grads, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only, attri_name='int grads')
+            plot_attri(test_data, int_grads, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname,  for_only=for_only, attri_name='int grads')
+
+        except FileNotFoundError:
+            logging.warning("Integrated Gradient don't exist ...")
+
+    if(False):
+
+        try:
+            logging.info("Generating Lime Attributions Graph for {} instances of testdata ...".format(for_only))
+
+            plot_attri(test_data, lime, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only, attri_name='lime', plot=True)
+            plot_attri(test_data, lime, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only, attri_name='lime', plot=True)
+
+        except FileNotFoundError:
+            logging.warning("Lime don't exist ...")
+
+    if(True):
+        try:
+            logging.info("Generating LRP Attributions Graph for {} instances of testdata ...".format(for_only))
+            if(lrp==None):
+                lrp = pload(model, 'lrp_attributions')
+            process_lrp(lrp)
+
+            plot_attri(test_data, lrp, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only,attri_name='lrp', plot=False)
+            plot_attri(test_data, lrp, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only, attri_name='lrp', plot=False)
+
+        except FileNotFoundError:
+            logging.warning("LRP don't exist ...")
+
+
+
+    if(False):
+        try:
+            logging.info("Generating DL Attributions Graph for {} instances of testdata ...".format(for_only))
+
+            process_lrp(dl)
+
+            plot_attri(test_data, dl, kendalltau, 'kendalltau', dirname=model.dirname, for_only=for_only, plot=False, attri_name='deeplift')
+            plot_attri(test_data, dl, kendall_top_k_dataset, 'kendalltop', dirname=model.dirname, for_only=for_only, plot=False, attri_name='deeplift')
+
+        except FileNotFoundError:
+            logging.warning("Deeplift don't exist ...")
 
     exit(0)
 

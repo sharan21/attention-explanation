@@ -161,14 +161,10 @@ class Model() :
 
     def evaluate(self, data, use_tqdm=True) :
 
-        if(len(np.array(data).shape) == 3): #fails when leading length is very big, shape will be 2 dimentional
+        if(len(np.array(data[0]).shape) == 2): #fails when leading length is very big, shape will be 2 dimentional
             is_embed = True
         else:
             is_embed = False
-
-        print(is_embed)
-
-
 
         self.encoder.train()
         self.decoder.train()
@@ -182,7 +178,6 @@ class Model() :
 
         for n in range(0, N, bsize):
 
-
             torch.cuda.empty_cache()
 
             batch_doc = data[n:n+bsize]
@@ -194,9 +189,6 @@ class Model() :
             self.decoder(batch_data)
 
             # return self.decoder.get_context(batch_data)
-
-
-
 
             batch_data.predict = torch.sigmoid(batch_data.predict)
             if self.decoder.use_attention :
@@ -214,41 +206,39 @@ class Model() :
         return outputs, attns
 
 
-    def evaluate_and_buffer(self, data_in, no_of_instances):
+    def evaluate_and_buffer(self, data):
         # Get the outputs of each layer to feed into deeplift
         # raw_inp -> embeddings -> hidden states -> attention weights -> context vector -> output
+        # used for deeplift
 
-        data = data_in[0:no_of_instances]
 
-        # fails when leading length is very big, shape will be 2 dimentional
-        if(len(np.array(data).shape) == 3):
+        if(len(np.array(data[0]).shape) == 2):
             is_embed = True
         else:
             is_embed = False
 
-        print("in evaluate_and_buffer")
-        print(is_embed)
-        print(np.array(data[0]).shape)
-        bsize = self.bsize
+        self.encoder.train()
+        self.decoder.train()
 
+        bsize = self.bsize
         N = len(data)
 
         outputs = []
-        unactivated_outputs = []
+        u_outputs = []
         attns = []
         context = []
         hidden_states = []
 
-        for n in range(0, N, bsize):
+        for n in tqdm(range(0, N, bsize)):
             torch.cuda.empty_cache()
             batch_doc = data[n:n+bsize]
-            batch_data = BatchHolder(batch_doc, is_embed=is_embed)
+            print(is_embed)
+            batch_data = BatchHolder(batch_doc, is_embed=is_embed, is_dl=True)
             self.encoder(batch_data)
             hs = batch_data.hidden.cpu().data.numpy()
             hidden_states.append(hs)
             self.decoder(batch_data)
-            unactivated_outputs.append(batch_data.predict)
-
+            u_outputs.append(batch_data.predict)
 
             batch_data.predict = torch.sigmoid(batch_data.predict)
 
@@ -260,40 +250,26 @@ class Model() :
             predict = batch_data.predict.cpu().data.numpy()
             outputs.append(predict)
 
-        #Unpacking batches->instances
         context = [x for y in context for x in y]
-        u_outputs = [x for y in outputs for x in y]
-        unactivated_outputs = [x for y in unactivated_outputs for x in y]
+        outputs = [x for y in outputs for x in y]
+        u_outputs = [x for y in u_outputs for x in y]
         hidden_states = [x for y in hidden_states for x in y]
+
         if self.decoder.use_attention :
             attns = [x for y in attns for x in y]
 
         return hidden_states, attns, context, u_outputs, outputs
 
-    def lrp_mem(self, data_in, no_of_instances = 100) :
+    def lrp_mem(self, test_data, no_of_instances = 100) :
         # returns LRP Decomposition wrt attention layer (B, L) and wrt Decoder context input (B, H)
 
-        data_in = data_in[0:no_of_instances]
-
-        sorting_idx = get_sorting_index_with_noise_from_lengths([len(x) for x in data_in], noise_frac=0.1)
-        data = [data_in[i] for i in sorting_idx]
-        # target = [target_in[i] for i in sorting_idx]
-
-
         bsize = self.bsize
-        N = len(data)
-        # loss_total = 0
-
-        batches = list(range(0, N, bsize))
-        batches = shuffle(batches)
 
         lrp_attri = []
 
-        # output_buffer = []
-
-        for n in tqdm(batches) :
+        for n in tqdm(range(0, no_of_instances, bsize)):
             torch.cuda.empty_cache()
-            batch_doc = data[n:n+bsize]
+            batch_doc = test_data[n:n+bsize]
             batch_data = BatchHolder(batch_doc)
 
             self.encoder(batch_data)
@@ -303,75 +279,74 @@ class Model() :
 
         return lrp_attri
 
-    def get_attention(self, data, no_of_instances=10):
-        #Used for human eval scripts
-        #returns list of ndarrays
 
-        data = data[0:no_of_instances]
-
-        # sorting_idx = get_sorting_index_with_noise_from_lengths([len(x) for x in data], noise_frac=0.1)
-        # data = [data[i] for i in sorting_idx]
-
-        bsize = self.bsize
-        N = len(data)
-
-        batches = list(range(0, N, bsize))
-        batches = shuffle(batches)
-
-        attn = []
-
-        for n in tqdm(batches):
-
-            torch.cuda.empty_cache()
-            batch_doc = data[n:n + bsize]
-            batch_data = BatchHolder(batch_doc)
-
-            self.encoder(batch_data)
-
-            batch_attn = self.decoder.get_attention(batch_data)
-
-            attn.extend(np.array(batch_attn.data))
-
-        return attn
-
-
-
-
-
-    def deeplift_mem(self, dataset, no_of_instances=100):
+    def deeplift_mem(self, data, no_of_instances=64):
         # returns deeplift relevances scores wrt attention weights and context vector (only Decoder level)
         # does not propagate to encoder level yet because im not sure how to propagate through bahdanu attention layer
 
         embd_dict = np.array(self.encoder.embedding.weight.data)
+        bsize = self.bsize
 
-        test_data_embds_full = []
-        baseline_embds_full = []
+        data_embds = []
+        data_embds_bs = []
 
-        for e in dataset.test_data.X:
-            test_data_embds_full.append(get_embeddings_for_testdata(e, embd_dict))
-            baseline_embds_full.append(get_baseline_embeddings_for_testdata(e, embd_dict))
+        dl_attri = []
 
-        hs_bs, attn_bs, ctx_bs, u_outs_bs, outs_bs = self.evaluate_and_buffer(baseline_embds_full, no_of_instances=no_of_instances)
+        for i in tqdm(range(no_of_instances)):
+            data_embds.append(get_embeddings_for_testdata(data.test_data.X[i], embd_dict)) #(B,L,E)
+            data_embds_bs.append(get_baseline_embeddings_for_testdata(data.test_data.X[i], embd_dict)) #(B,L,E0)
 
-        hs, attn, ctx, u_outs, outs = self.evaluate_and_buffer(test_data_embds_full, no_of_instances=no_of_instances)
 
-        delta_x = dict() #holds difference in outputs for each layer
+        for n in tqdm(range(0, no_of_instances, bsize)):
 
-        delta_x['d_o'] = np.subtract(outs, outs_bs)
-        delta_x['d_uo'] = np.subtract(u_outs, u_outs_bs)
-        delta_x['d_ctx'] = np.subtract(ctx, ctx_bs)
-        delta_x['d_attn'] = np.subtract(attn, attn_bs)
-        delta_x['d_hs'] = np.subtract(hs, hs_bs)
+            hs_bs, attn_bs, ctx_bs, u_outs_bs, outs_bs = self.evaluate_and_buffer(data_embds_bs[n:n+bsize])
+            hs, attn, ctx, u_outs, outs = self.evaluate_and_buffer(data_embds[n:n+bsize])
 
-        rel_attn, rel_ctx = self.decoder.deeplift(delta_x)
 
-        return rel_attn, rel_ctx
+            # print(np.array(hs_bs).shape)
+            # print(np.array(attn_bs).shape)
+            # print(np.array(ctx_bs).shape)
+            # print(np.array(u_outs_bs).shape)
+            # print(np.array(outs_bs).shape)
+            #
+            # print(np.array(hs).shape)
+            # print(np.array(attn).shape)
+            # print(np.array(ctx).shape)
+            # print(np.array(u_outs).shape)
+            # print(np.array(outs).shape)
+
+            # delta_x = {'d_o':  np.subtract(outs, outs_bs),
+            #            'd_uo': np.subtract(u_outs, u_outs_bs),
+            #            'd_ctx':np.subtract(ctx, ctx_bs),
+            #            'd_attn': np.subtract(attn, attn_bs),
+            #            'd_hs': np.subtract(hs, hs_bs)
+            #             }
+
+            # delta_x = {'d_o': np.array(outs_bs),
+            #            'd_uo': np.array(u_outs_bs),
+            #            'd_ctx': np.array(ctx_bs),
+            #            'd_attn': np.array(attn_bs),
+            #            'd_hs': np.array(hs_bs)
+            #            }
+
+            delta_x = {'d_o': np.array(outs),
+                       'd_uo': np.array(u_outs),
+                       'd_ctx': np.array(ctx),
+                       'd_attn': np.array(attn),
+                       'd_hs': np.array(hs)
+                       }
+
+            rel_attn, _ = self.decoder.deeplift(delta_x)
+
+            dl_attri.extend(rel_attn)
+
+        return dl_attri
 
 
 
     def gradient_mem(self, data) :
 
-        if (len(np.array(data).shape) == 3):
+        if (len(np.array(data[0]).shape) == 2):
             is_embed = True
         else:
             is_embed = False
@@ -412,17 +387,13 @@ class Model() :
                 em = batch_data.embedding
                 g1 = (g * em).sum(-1)
 
-
                 grads_xxex.append(g1.cpu().data.numpy())
 
                 """get XxE"""
-
                 g1 = (g * self.encoder.embedding.weight.sum(0)).sum(-1)
                 grads_xxe.append(g1.cpu().data.numpy())
 
-
                 """get H"""
-
                 g1 = batch_data.hidden.grad.sum(-1)
                 grads_H.append(g1.cpu().data.numpy())
 
@@ -788,3 +759,35 @@ class Model() :
         adverse_attn = [x for y in adverse_attn for x in y]
 
         return adverse_output, adverse_attn, adverse_X
+
+    def get_attention(self, data, no_of_instances=10): #not used for anything
+        #Used for human eval scripts
+        #returns list of ndarrays
+
+        data = data[0:no_of_instances]
+
+        # sorting_idx = get_sorting_index_with_noise_from_lengths([len(x) for x in data], noise_frac=0.1)
+        # data = [data[i] for i in sorting_idx]
+
+        bsize = self.bsize
+        N = len(data)
+
+        batches = list(range(0, N, bsize))
+        batches = shuffle(batches)
+
+        attn = []
+
+        for n in tqdm(batches):
+
+            torch.cuda.empty_cache()
+            batch_doc = data[n:n + bsize]
+            batch_data = BatchHolder(batch_doc)
+
+            self.encoder(batch_data)
+
+            batch_attn = self.decoder.get_attention(batch_data)
+
+            attn.extend(np.array(batch_attn.data))
+
+        return attn
+

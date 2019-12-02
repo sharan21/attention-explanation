@@ -13,43 +13,31 @@ def generate_graphs_on_encoders(dataset, encoders):
 
 def generate_graphs_on_latest_model(dataset, config='lstm'):
 
-
-
     config = configurations[config](dataset)
     latest_model = get_latest_model(os.path.join(config['training']['basepath'], config['training']['exp_dirname']))
     print("latest model is {}".format(latest_model))
     evaluator = Evaluator(dataset, latest_model, _type=dataset.trainer_type)
     _ = evaluator.evaluate(dataset.test_data, save_results=False)
 
-
-
-
-
-
-
     """Get Attributions"""
-    # lrp_attri = evaluator.model.lrp_mem(dataset.test_data.X, no_of_instances=100)
-    int_grads = evaluator.model.integrated_gradient_mem(dataset, no_of_instances=500)
-    normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X)
+    # lrp_attri = evaluator.model.lrp_mem(dataset.test_data.X, no_of_instances=10)
+    # int_grads = evaluator.model.integrated_gradient_mem(dataset, no_of_instances=10)
+    # normal_grads = evaluator.get_grads_from_custom_td(dataset.test_data.X):w
     # lime_attri = evaluator.model.lime_attribution_mem(dataset, no_of_instances=10)
-
-
-
-
-    # dl_attri, _  = evaluator.model.deeplift_mem(dataset, no_of_instances=50)
+    # dl_attri = evaluator.model.deeplift_mem(dataset, no_of_instances=10)
 
 
     generate_graphs(dataset, config['training']['exp_dirname'], evaluator.model, test_data=dataset.test_data,
-                    int_grads=int_grads, norm_grads=normal_grads, lime=None, lrp=None, dl=None, for_only=len(int_grads))
+                    int_grads=None, norm_grads=None, lime=None, lrp=None, dl=None, for_only=-1)
 
 
 def train_dataset(dataset, config='lstm', n_iter=2):
     try:
         # building the config and initializing the BC model with it through trainer wrapper class
         config = configurations[config](dataset)
-        trainer = Trainer(dataset, config=config, _type=dataset.trainer_type)  # will create new model
+        # trainer = Trainer(dataset, config=config, _type=dataset.trainer_type)  # will create new model
 
-        trainer.train(dataset.train_data, dataset.dev_data, n_iters=n_iter, save_on_metric=dataset.save_on_metric)
+        # trainer.train(dataset.train_data, dataset.dev_data, n_iters=n_iter, save_on_metric=dataset.save_on_metric)
         evaluator = Evaluator(dataset, trainer.model.dirname, _type=dataset.trainer_type)
         _ = evaluator.evaluate(dataset.test_data, save_results=True)
         return trainer, evaluator
@@ -59,10 +47,9 @@ def train_dataset(dataset, config='lstm', n_iter=2):
         exit()
         return
 
-
 def train_dataset_on_encoders(dataset, encoders):
     for e in encoders:
-        train_dataset(dataset, e, n_iter=1)
+        # train_dataset(dataset, e, n_iter=1)
         run_experiments_on_latest_model(dataset, e)
 
 
@@ -98,15 +85,12 @@ def run_experiments_on_latest_model(dataset, config='lstm', force_run=True):
 
     evaluator = run_evaluator_on_latest_model(dataset, config)
     test_data = dataset.test_data
-    evaluator.gradient_experiment(test_data, force_run=force_run)
-    evaluator.permutation_experiment(test_data, force_run=force_run)
-    evaluator.adversarial_experiment(test_data, force_run=force_run)
-    evaluator.integrated_gradient_experiment(dataset, force_run=force_run)
-    evaluator.lime_attribution_experiment(dataset, force_run=force_run)
-    evaluator.lrp_attribution_experiment(dataset, force_run=force_run)
-
-
-
+    # evaluator.gradient_experiment(test_data, force_run=force_run)
+    #evaluator.permutation_experiment(test_data, force_run=force_run)
+    # evaluator.adversarial_experiment(test_data, force_run=force_run)
+    # evaluator.integrated_gradient_experiment(dataset, force_run=force_run)
+    # evaluator.lime_attribution_experiment(dataset, force_run=force_run)
+    # evaluator.lrp_attribution_experiment(dataset, force_run=force_run)
 
 
 def generate_adversarial_examples(dataset, config='lstm'):

@@ -1,9 +1,8 @@
-def isTrue(obj, attr) :
-	return hasattr(obj, attr) and getattr(obj, attr)
-
 import numpy as np
 import torch
 
+def isTrue(obj, attr) :
+	return hasattr(obj, attr) and getattr(obj, attr)
 
 def masked_softmax(tensor, mask, dim=-1) :
 	# tensor : (x1, x2, x3, ..., xn) Tensor
@@ -23,39 +22,53 @@ def get_sorting_index_with_noise_from_lengths(lengths, noise_frac) :
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 class BatchHolder() : 
-	def __init__(self, data, is_embed=False) :
+	def __init__(self, data, is_embed=False, is_dl=False):
 
-		maxlen = max([len(x) for x in data]) #takes the largest word count in the batch
+		maxlen = max([len(x) for x in data])
 
 		self.maxlen = maxlen
-		self.B = len(data) #4356
+		self.B = len(data)
 
 		lengths = []
 		expanded = []
 		masks = []
 
+		for _, d in enumerate(data):
+			try:
+				rem = maxlen - len(d)
 
+				# used for expanding embeds for dl
+				if(is_embed and is_dl):
+					add = []
+					for i in range(rem):
+						add.append([0]*300)
+				else:
+					add = [0] * rem
 
-		for _, d in enumerate(data) :
+				expanded.append(d + add)
+				lengths.append(len(d))
+				masks.append([1] + [0] * (len(d) - 2) + [1] * (rem + 1))
 
-			rem = maxlen - len(d)
-			expanded.append(d + [0]*rem)
-			lengths.append(len(d))
-			masks.append([1] + [0]*(len(d)-2) + [1]*(rem+1))
+			except:
+				print("error in expanding section of batchholder")
+				exit(1)
 
-		"""Ignore the highlighted warnings"""
 		self.lengths = torch.LongTensor(np.array(lengths)).to(device)
 
-		if(is_embed):
-			self.seq = torch.FloatTensor(np.array(expanded, dtype='float64')).to(device) #if LongTensor is used, embeddings will be truncated to 0
+
+		if (is_embed):
+			try:
+				self.seq = torch.FloatTensor(np.array(expanded, dtype='float64')).to(device)
+			except Exception as e:
+				print(e)
+				exit(1)
 		else:
 			self.seq = torch.LongTensor(np.array(expanded, dtype='float64')).to(device)
-
 
 		self.masks = torch.ByteTensor(np.array(masks)).to(device)
 
 		self.hidden = None
-		self.predict = None #set to torch.sigmoid
+		self.predict = None
 		self.attn = None
 
 	def generate_permutation(self) :
